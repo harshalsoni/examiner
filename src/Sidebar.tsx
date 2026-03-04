@@ -309,6 +309,16 @@ function Sidebar({
           ? "Upload a questions file to begin. Share the link with candidates. Download the code when the interview is complete."
           : "Copy and paste are disabled. Your activity is being monitored."}
       </Text>
+      <Text fontSize="xs" mt={2}>
+        <a
+          href="https://github.com/harshalsoni/examiner"
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{ textDecoration: "underline" }}
+        >
+          GitHub
+        </a>
+      </Text>
     </Container>
   );
 }
