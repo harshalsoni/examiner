@@ -1,6 +1,6 @@
-FROM rust:alpine AS backend
+FROM --platform=amd64 rust:alpine AS backend
 WORKDIR /home/rust/src
-RUN apk --no-cache add musl-dev openssl-dev
+RUN apk --no-cache add musl-dev
 
 # Cache dependencies — only invalidated when Cargo.toml/Cargo.lock change
 COPY Cargo.toml Cargo.lock ./
@@ -13,9 +13,10 @@ RUN mkdir -p examiner-server/src examiner-wasm/src \
     && cargo build --release --package examiner-server \
     && rm -rf examiner-server/src examiner-wasm/src
 
-# Build actual source (cached deps are reused)
+# Build actual source — touch ensures mtimes are newer than cached artifacts
 COPY . .
-RUN cargo build --release --package examiner-server
+RUN touch examiner-server/src/main.rs examiner-server/src/lib.rs && \
+    cargo build --release --package examiner-server
 
 FROM --platform=amd64 rust:alpine AS wasm
 WORKDIR /home/rust/src
@@ -40,5 +41,7 @@ RUN adduser -D -u 1000 appuser
 WORKDIR /app
 COPY --from=frontend /usr/src/app/dist dist
 COPY --from=backend /home/rust/src/target/release/examiner-server .
+RUN ldd examiner-server 2>&1 || true && \
+    wc -c < examiner-server
 USER appuser
 CMD [ "./examiner-server" ]

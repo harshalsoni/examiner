@@ -112,7 +112,10 @@ jobs:
           service: ${{ env.SERVICE_NAME }}
           region: ${{ env.GCP_REGION }}
           image: ${{ env.GCP_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.GAR_REPOSITORY }}/${{ env.SERVICE_NAME }}:${{ github.sha }}
-          flags: '--min-instances=0 --max-instances=3 --port=3030 --allow-unauthenticated --set-env-vars=RUST_LOG=info,EXPIRY_DAYS=1'
+          flags: '--min-instances=0 --max-instances=3 --port=3030 --allow-unauthenticated'
+          env_vars: |
+            RUST_LOG=info
+            EXPIRY_DAYS=1
 
       - name: Show Cloud Run URL
         run: |

@@ -10,6 +10,8 @@ async fn main() {
         .parse()
         .expect("Unable to parse PORT");
 
+    eprintln!("examiner: configuring server");
+
     let config = ServerConfig {
         expiry_days: std::env::var("EXPIRY_DAYS")
             .unwrap_or_else(|_| String::from("1"))
@@ -25,5 +27,6 @@ async fn main() {
         },
     };
 
+    eprintln!("examiner: starting on 0.0.0.0:{}", port);
     warp::serve(server(config)).run(([0, 0, 0, 0], port)).await;
 }
