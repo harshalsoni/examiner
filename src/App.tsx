@@ -527,13 +527,53 @@ function App() {
                 justifyContent="center"
                 pointerEvents="none"
               >
-                <Text
-                  fontSize="2xl"
-                  fontWeight="bold"
-                  color={darkMode ? "red.300" : "red.600"}
-                >
-                  Return your mouse to the browser window
-                </Text>
+                <Box
+                  dangerouslySetInnerHTML={{
+                    __html: `
+                      <svg width="120" height="120" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+                        <!-- Robot Head -->
+                        <rect x="25" y="35" width="70" height="60" rx="8"
+                              fill="${darkMode ? "#FC8181" : "#E53E3E"}"
+                              stroke="${darkMode ? "#FEB2B2" : "#C53030"}"
+                              stroke-width="2"/>
+
+                        <!-- Antenna -->
+                        <line x1="60" y1="35" x2="60" y2="20"
+                              stroke="${darkMode ? "#FEB2B2" : "#C53030"}"
+                              stroke-width="2" stroke-linecap="round"/>
+                        <circle cx="60" cy="18" r="4"
+                                fill="${darkMode ? "#FEB2B2" : "#C53030"}"/>
+
+                        <!-- Eyes -->
+                        <circle cx="45" cy="55" r="8"
+                                fill="${darkMode ? "#2D3748" : "#FFFFFF"}"
+                                opacity="0.9"/>
+                        <circle cx="75" cy="55" r="8"
+                                fill="${darkMode ? "#2D3748" : "#FFFFFF"}"
+                                opacity="0.9"/>
+                        <circle cx="45" cy="55" r="4"
+                                fill="${darkMode ? "#FEB2B2" : "#C53030"}"/>
+                        <circle cx="75" cy="55" r="4"
+                                fill="${darkMode ? "#FEB2B2" : "#C53030"}"/>
+
+                        <!-- Mouth (sad/warning) -->
+                        <path d="M 45 75 Q 60 70 75 75"
+                              stroke="${darkMode ? "#2D3748" : "#FFFFFF"}"
+                              stroke-width="2"
+                              fill="none"
+                              stroke-linecap="round"
+                              opacity="0.8"/>
+
+                        <!-- Code brackets decoration -->
+                        <text x="35" y="85"
+                              font-family="monospace"
+                              font-size="12"
+                              fill="${darkMode ? "#2D3748" : "#FFFFFF"}"
+                              opacity="0.6">&lt;/&gt;</text>
+                      </svg>
+                    `,
+                  }}
+                />
               </Box>
             )}
           </Box>
