@@ -16,11 +16,11 @@ import {
 import { useRef } from "react";
 import { VscCloudDownload, VscCloudUpload } from "react-icons/vsc";
 
+import type { ProctoringStats } from "./App";
 import ConnectionStatus from "./ConnectionStatus";
 import User from "./User";
-import languages from "./languages.json";
 import type { UserInfo } from "./examiner";
-import type { ProctoringStats } from "./App";
+import languages from "./languages.json";
 
 /** Compute the candidate share link (no examiner token). */
 function getCandidateUrl(documentId: string): string {
@@ -218,10 +218,7 @@ function Sidebar({
             Proctoring Alerts
           </Text>
           {Object.entries(totalStats).map(([event, count]) => (
-            <Text
-              key={event}
-              color={darkMode ? "red.200" : "red.600"}
-            >
+            <Text key={event} color={darkMode ? "red.200" : "red.600"}>
               {eventLabels[event] ?? event}: {count}
             </Text>
           ))}
@@ -318,6 +315,15 @@ function Sidebar({
           style={{ textDecoration: "underline" }}
         >
           GitHub
+        </a>
+        {" • "}
+        <a
+          href="https://buymeacoffee.com/mrgoldman"
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{ textDecoration: "underline" }}
+        >
+          Buy Me a Coffee
         </a>
       </Text>
     </Container>

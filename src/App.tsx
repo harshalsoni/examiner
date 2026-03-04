@@ -1,9 +1,9 @@
 import { Box, Flex, HStack, Icon, Text, useToast } from "@chakra-ui/react";
 import Editor from "@monaco-editor/react";
 import {
-  editor,
   KeyCode,
   KeyMod,
+  editor,
 } from "monaco-editor/esm/vs/editor/editor.api";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { VscChevronRight, VscFolderOpened, VscGist } from "react-icons/vsc";
@@ -12,8 +12,8 @@ import useLocalStorageState from "use-local-storage-state";
 import Footer from "./Footer";
 import Sidebar from "./Sidebar";
 import animals from "./animals.json";
-import languages from "./languages.json";
 import Examiner, { UserInfo } from "./examiner";
+import languages from "./languages.json";
 import useHash from "./useHash";
 
 function getWsUri(id: string) {
@@ -144,12 +144,9 @@ function App() {
   // Track AI tool detection flags to avoid duplicate events
   const aiDetectedRef = useRef<Set<string>>(new Set());
 
-  const handleFocusChange = useCallback(
-    (userId: number, blurred: boolean) => {
-      setUserFocusStatus((prev) => ({ ...prev, [userId]: blurred }));
-    },
-    [],
-  );
+  const handleFocusChange = useCallback((userId: number, blurred: boolean) => {
+    setUserFocusStatus((prev) => ({ ...prev, [userId]: blurred }));
+  }, []);
 
   const handleProctoringEvent = useCallback(
     (userId: number, eventType: string) => {
@@ -278,8 +275,14 @@ function App() {
     document.documentElement.addEventListener("mouseleave", handleMouseLeave);
     document.documentElement.addEventListener("mouseenter", handleMouseEnter);
     return () => {
-      document.documentElement.removeEventListener("mouseleave", handleMouseLeave);
-      document.documentElement.removeEventListener("mouseenter", handleMouseEnter);
+      document.documentElement.removeEventListener(
+        "mouseleave",
+        handleMouseLeave,
+      );
+      document.documentElement.removeEventListener(
+        "mouseenter",
+        handleMouseEnter,
+      );
     };
   }, []);
 
@@ -291,10 +294,7 @@ function App() {
       // Detect DevTools via window dimension heuristic
       const widthDiff = window.outerWidth - window.innerWidth;
       const heightDiff = window.outerHeight - window.innerHeight;
-      if (
-        (widthDiff > 200 || heightDiff > 200) &&
-        !detected.has("devtools")
-      ) {
+      if ((widthDiff > 200 || heightDiff > 200) && !detected.has("devtools")) {
         detected.add("devtools");
         examiner.current?.sendProctoringEvent("devtools_open");
       }
@@ -365,7 +365,14 @@ function App() {
         examiner.current = undefined;
       };
     }
-  }, [id, editorInstance, toast, setUsers, handleFocusChange, handleProctoringEvent]);
+  }, [
+    id,
+    editorInstance,
+    toast,
+    setUsers,
+    handleFocusChange,
+    handleProctoringEvent,
+  ]);
 
   useEffect(() => {
     if (connection === "connected") {
@@ -521,7 +528,9 @@ function App() {
                 bottom={0}
                 zIndex={20}
                 backdropFilter="blur(8px)"
-                backgroundColor={darkMode ? "rgba(0, 0, 0, 0.5)" : "rgba(255, 255, 255, 0.5)"}
+                backgroundColor={
+                  darkMode ? "rgba(0, 0, 0, 0.5)" : "rgba(255, 255, 255, 0.5)"
+                }
                 display="flex"
                 alignItems="center"
                 justifyContent="center"

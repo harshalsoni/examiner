@@ -1,10 +1,10 @@
+import { OpSeq } from "examiner-wasm";
 import debounce from "lodash.debounce";
 import type {
   IDisposable,
   IPosition,
   editor,
 } from "monaco-editor/esm/vs/editor/editor.api";
-import { OpSeq } from "examiner-wasm";
 
 /** Options passed in to the Examiner constructor. */
 export type ExaminerOptions = {
@@ -117,7 +117,9 @@ class Examiner {
 
   /** Report a proctoring event (copy attempt, paste attempt, etc.). */
   sendProctoringEvent(eventType: string) {
-    this.ws?.send(JSON.stringify({ ProctoringEvent: { event_type: eventType } }));
+    this.ws?.send(
+      JSON.stringify({ ProctoringEvent: { event_type: eventType } }),
+    );
   }
 
   /**
