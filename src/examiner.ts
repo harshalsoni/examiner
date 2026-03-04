@@ -15,6 +15,7 @@ export type ExaminerOptions = {
   readonly onDesynchronized?: () => void;
   readonly onChangeLanguage?: (language: string) => void;
   readonly onChangeUsers?: (users: Record<number, UserInfo>) => void;
+  readonly onFocusChange?: (userId: number, blurred: boolean) => void;
   readonly reconnectInterval?: number;
 };
 
@@ -108,6 +109,11 @@ class Examiner {
     this.sendInfo();
   }
 
+  /** Report a focus change (tab switch / window blur). */
+  sendFocusChange(blurred: boolean) {
+    this.ws?.send(JSON.stringify({ FocusChange: { blurred } }));
+  }
+
   /**
    * Attempts a WebSocket connection.
    *
@@ -196,6 +202,11 @@ class Examiner {
       if (id !== this.me) {
         this.userCursors[id] = data;
         this.updateCursors();
+      }
+    } else if (msg.UserFocus !== undefined) {
+      const { id, blurred } = msg.UserFocus;
+      if (id !== this.me) {
+        this.options.onFocusChange?.(id, blurred);
       }
     }
   }
@@ -451,6 +462,10 @@ type ServerMsg = {
   UserCursor?: {
     id: number;
     data: CursorData;
+  };
+  UserFocus?: {
+    id: number;
+    blurred: boolean;
   };
 };
 

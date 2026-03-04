@@ -24,6 +24,7 @@ import { UserInfo } from "./examiner";
 type UserProps = {
   info: UserInfo;
   isMe?: boolean;
+  isBlurred?: boolean;
   onChangeName?: (name: string) => void;
   onChangeColor?: () => void;
   darkMode: boolean;
@@ -32,6 +33,7 @@ type UserProps = {
 function User({
   info,
   isMe = false,
+  isBlurred = false,
   onChangeName,
   onChangeColor,
   darkMode,
@@ -62,6 +64,11 @@ function User({
             {info.name}
           </Text>
           {isMe && <Text>(you)</Text>}
+          {isBlurred && (
+            <Text color="red.500" fontWeight="bold" fontSize="xs">
+              [AWAY]
+            </Text>
+          )}
         </HStack>
       </PopoverTrigger>
       <PopoverContent

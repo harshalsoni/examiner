@@ -1,4 +1,5 @@
 import {
+  Box,
   Button,
   Container,
   Flex,
@@ -27,6 +28,8 @@ export type SidebarProps = {
   language: string;
   currentUser: UserInfo;
   users: Record<number, UserInfo>;
+  userFocusStatus: Record<number, boolean>;
+  focusLossCount: number;
   onDarkModeChange: () => void;
   onLanguageChange: (language: string) => void;
   onUploadQuestions: (text: string) => void;
@@ -42,6 +45,8 @@ function Sidebar({
   language,
   currentUser,
   users,
+  userFocusStatus,
+  focusLossCount,
   onDarkModeChange,
   onLanguageChange,
   onUploadQuestions,
@@ -150,9 +155,29 @@ function Sidebar({
           darkMode={darkMode}
         />
         {Object.entries(users).map(([id, info]) => (
-          <User key={id} info={info} darkMode={darkMode} />
+          <User
+            key={id}
+            info={info}
+            darkMode={darkMode}
+            isBlurred={userFocusStatus[Number(id)]}
+          />
         ))}
       </Stack>
+      {focusLossCount > 0 && (
+        <Box
+          mt={2}
+          p={2}
+          bg="red.50"
+          border="1px solid"
+          borderColor="red.300"
+          borderRadius="md"
+          fontSize="xs"
+        >
+          <Text color="red.700" fontWeight="bold">
+            Tab switches detected: {focusLossCount}
+          </Text>
+        </Box>
+      )}
 
       <Heading mt={4} mb={1.5} size="sm">
         Interview Tools
