@@ -20,6 +20,23 @@ import ConnectionStatus from "./ConnectionStatus";
 import User from "./User";
 import languages from "./languages.json";
 import type { UserInfo } from "./examiner";
+import type { ProctoringStats } from "./App";
+
+/** Compute the candidate share link (no examiner token). */
+function getCandidateUrl(documentId: string): string {
+  return `${window.location.origin}/#${documentId}`;
+}
+
+/** Human-readable labels for proctoring event types. */
+const eventLabels: Record<string, string> = {
+  tab_switch: "Tab Switches",
+  copy_attempt: "Copy Attempts",
+  paste_attempt: "Paste Attempts",
+  cut_attempt: "Cut Attempts",
+  screenshot_attempt: "Screenshot Attempts",
+  devtools_open: "DevTools Opened",
+  ai_tool_detected: "AI Tool Detected",
+};
 
 export type SidebarProps = {
   documentId: string;
@@ -30,6 +47,8 @@ export type SidebarProps = {
   users: Record<number, UserInfo>;
   userFocusStatus: Record<number, boolean>;
   focusLossCount: number;
+  isCreator: boolean;
+  userProctoringStats: ProctoringStats;
   onDarkModeChange: () => void;
   onLanguageChange: (language: string) => void;
   onUploadQuestions: (text: string) => void;
@@ -47,6 +66,8 @@ function Sidebar({
   users,
   userFocusStatus,
   focusLossCount,
+  isCreator,
+  userProctoringStats,
   onDarkModeChange,
   onLanguageChange,
   onUploadQuestions,
@@ -57,11 +78,11 @@ function Sidebar({
   const toast = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // For sharing the document by link to others.
-  const documentUrl = `${window.location.origin}/#${documentId}`;
+  // Candidates get a clean URL without the examiner token.
+  const shareUrl = getCandidateUrl(documentId);
 
   async function handleCopy() {
-    await navigator.clipboard.writeText(documentUrl);
+    await navigator.clipboard.writeText(shareUrl);
     toast({
       title: "Copied!",
       description: "Link copied to clipboard",
@@ -82,6 +103,15 @@ function Sidebar({
     reader.readAsText(file);
     e.target.value = "";
   }
+
+  // Aggregate all proctoring events across all users for a summary
+  const totalStats: Record<string, number> = {};
+  for (const userStats of Object.values(userProctoringStats)) {
+    for (const [event, count] of Object.entries(userStats)) {
+      totalStats[event] = (totalStats[event] ?? 0) + count;
+    }
+  }
+  const hasAnyStats = Object.keys(totalStats).length > 0 || focusLossCount > 0;
 
   return (
     <Container
@@ -117,31 +147,35 @@ function Sidebar({
         ))}
       </Select>
 
-      <Heading mt={4} mb={1.5} size="sm">
-        Share Link
-      </Heading>
-      <InputGroup size="sm">
-        <Input
-          readOnly
-          pr="3.5rem"
-          variant="outline"
-          bgColor={darkMode ? "#3c3c3c" : "white"}
-          borderColor={darkMode ? "#3c3c3c" : "white"}
-          value={documentUrl}
-        />
-        <InputRightElement width="3.5rem">
-          <Button
-            h="1.4rem"
-            size="xs"
-            onClick={handleCopy}
-            _hover={{ bg: darkMode ? "#575759" : "gray.200" }}
-            bgColor={darkMode ? "#575759" : "gray.200"}
-            color={darkMode ? "white" : "inherit"}
-          >
-            Copy
-          </Button>
-        </InputRightElement>
-      </InputGroup>
+      {isCreator && (
+        <>
+          <Heading mt={4} mb={1.5} size="sm">
+            Share Link
+          </Heading>
+          <InputGroup size="sm">
+            <Input
+              readOnly
+              pr="3.5rem"
+              variant="outline"
+              bgColor={darkMode ? "#3c3c3c" : "white"}
+              borderColor={darkMode ? "#3c3c3c" : "white"}
+              value={shareUrl}
+            />
+            <InputRightElement width="3.5rem">
+              <Button
+                h="1.4rem"
+                size="xs"
+                onClick={handleCopy}
+                _hover={{ bg: darkMode ? "#575759" : "gray.200" }}
+                bgColor={darkMode ? "#575759" : "gray.200"}
+                color={darkMode ? "white" : "inherit"}
+              >
+                Copy
+              </Button>
+            </InputRightElement>
+          </InputGroup>
+        </>
+      )}
 
       <Heading mt={4} mb={1.5} size="sm">
         Active Users
@@ -159,60 +193,109 @@ function Sidebar({
             key={id}
             info={info}
             darkMode={darkMode}
-            isBlurred={userFocusStatus[Number(id)]}
+            isBlurred={isCreator ? userFocusStatus[Number(id)] : false}
           />
         ))}
       </Stack>
-      {focusLossCount > 0 && (
+
+      {/* Proctoring stats — only visible to examiner */}
+      {isCreator && hasAnyStats && (
         <Box
           mt={2}
           p={2}
-          bg="red.50"
+          bg={darkMode ? "#3c3c3c" : "red.50"}
           border="1px solid"
-          borderColor="red.300"
+          borderColor={darkMode ? "#555" : "red.300"}
           borderRadius="md"
           fontSize="xs"
         >
-          <Text color="red.700" fontWeight="bold">
-            Tab switches detected: {focusLossCount}
+          <Text
+            color={darkMode ? "red.300" : "red.700"}
+            fontWeight="bold"
+            mb={1}
+          >
+            Proctoring Alerts
           </Text>
+          {Object.entries(totalStats).map(([event, count]) => (
+            <Text
+              key={event}
+              color={darkMode ? "red.200" : "red.600"}
+            >
+              {eventLabels[event] ?? event}: {count}
+            </Text>
+          ))}
+
+          {/* Per-user breakdown */}
+          {Object.entries(userProctoringStats).map(([userId, stats]) => {
+            const userInfo = users[Number(userId)];
+            const userName = userInfo?.name ?? `User ${userId}`;
+            return (
+              <Box
+                key={userId}
+                mt={2}
+                pt={1}
+                borderTop="1px solid"
+                borderColor={darkMode ? "#555" : "red.200"}
+              >
+                <Text
+                  color={darkMode ? "orange.200" : "orange.700"}
+                  fontWeight="semibold"
+                >
+                  {userName}
+                </Text>
+                {Object.entries(stats).map(([event, count]) => (
+                  <Text
+                    key={event}
+                    color={darkMode ? "gray.300" : "red.600"}
+                    pl={2}
+                  >
+                    {eventLabels[event] ?? event}: {count}
+                  </Text>
+                ))}
+              </Box>
+            );
+          })}
         </Box>
       )}
 
-      <Heading mt={4} mb={1.5} size="sm">
-        Interview Tools
-      </Heading>
-      <input
-        type="file"
-        accept=".txt,.md"
-        ref={fileInputRef}
-        style={{ display: "none" }}
-        onChange={handleFileUpload}
-      />
-      <Stack spacing={2}>
-        <Button
-          size="sm"
-          colorScheme={darkMode ? "whiteAlpha" : "blackAlpha"}
-          borderColor={darkMode ? "blue.400" : "blue.600"}
-          color={darkMode ? "blue.400" : "blue.600"}
-          variant="outline"
-          leftIcon={<VscCloudUpload />}
-          onClick={() => fileInputRef.current?.click()}
-        >
-          Upload Questions
-        </Button>
-        <Button
-          size="sm"
-          colorScheme={darkMode ? "whiteAlpha" : "blackAlpha"}
-          borderColor={darkMode ? "green.400" : "green.600"}
-          color={darkMode ? "green.400" : "green.600"}
-          variant="outline"
-          leftIcon={<VscCloudDownload />}
-          onClick={onDownloadCode}
-        >
-          Download Code
-        </Button>
-      </Stack>
+      {isCreator && (
+        <>
+          <Heading mt={4} mb={1.5} size="sm">
+            Interview Tools
+          </Heading>
+          <input
+            type="file"
+            accept=".txt,.md"
+            ref={fileInputRef}
+            style={{ display: "none" }}
+            onChange={handleFileUpload}
+          />
+          <Stack spacing={2}>
+            <Button
+              size="sm"
+              colorScheme={darkMode ? "whiteAlpha" : "blackAlpha"}
+              borderColor={darkMode ? "blue.400" : "blue.600"}
+              color={darkMode ? "blue.400" : "blue.600"}
+              variant="outline"
+              leftIcon={<VscCloudUpload />}
+              onClick={() => fileInputRef.current?.click()}
+            >
+              Upload Questions
+            </Button>
+            <Button
+              size="sm"
+              colorScheme={darkMode ? "whiteAlpha" : "blackAlpha"}
+              borderColor={darkMode ? "green.400" : "green.600"}
+              color={darkMode ? "green.400" : "green.600"}
+              variant="outline"
+              leftIcon={<VscCloudDownload />}
+              onClick={onDownloadCode}
+            >
+              Download Code
+            </Button>
+          </Stack>
+        </>
+      )}
 
       <Heading mt={4} mb={1.5} size="sm">
         About
@@ -222,8 +305,9 @@ function Sidebar({
         conducting coding interviews in real time.
       </Text>
       <Text fontSize="sm" mb={1.5}>
-        Upload a questions file to begin. Copy and paste are disabled for all
-        users. Download the code when the interview is complete.
+        {isCreator
+          ? "Upload a questions file to begin. Share the link with candidates. Download the code when the interview is complete."
+          : "Copy and paste are disabled. Your activity is being monitored."}
       </Text>
     </Container>
   );

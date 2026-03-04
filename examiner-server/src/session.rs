@@ -72,6 +72,8 @@ enum ClientMsg {
     CursorData(CursorData),
     /// Reports a focus change (tab switch / window blur).
     FocusChange { blurred: bool },
+    /// Reports a proctoring event (copy attempt, paste attempt, etc.).
+    ProctoringEvent { event_type: String },
 }
 
 /// A message sent to the client over WebSocket.
@@ -92,6 +94,8 @@ enum ServerMsg {
     UserCursor { id: u64, data: CursorData },
     /// Broadcasts a user's focus change (tab switch / window blur).
     UserFocus { id: u64, blurred: bool },
+    /// Broadcasts a proctoring event from a specific user.
+    ProctoringEvent { id: u64, event_type: String },
 }
 
 impl From<ServerMsg> for Message {
@@ -302,6 +306,10 @@ impl Examiner {
             }
             ClientMsg::FocusChange { blurred } => {
                 let msg = ServerMsg::UserFocus { id, blurred };
+                self.update.send(msg).ok();
+            }
+            ClientMsg::ProctoringEvent { event_type } => {
+                let msg = ServerMsg::ProctoringEvent { id, event_type };
                 self.update.send(msg).ok();
             }
         }
