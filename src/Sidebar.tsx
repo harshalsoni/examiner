@@ -36,6 +36,7 @@ const eventLabels: Record<string, string> = {
   screenshot_attempt: "Screenshot Attempts",
   devtools_open: "DevTools Opened",
   ai_tool_detected: "AI Tool Detected",
+  mouse_left: "Mouse Left Browser",
 };
 
 export type SidebarProps = {

@@ -126,6 +126,7 @@ function App() {
   const [focusLossCount, setFocusLossCount] = useState(0);
   const [userProctoringStats, setUserProctoringStats] =
     useState<ProctoringStats>({});
+  const [isMouseOutside, setIsMouseOutside] = useState(false);
   const examiner = useRef<Examiner>();
   const { id, isNewSession } = useHash();
 
@@ -264,6 +265,23 @@ function App() {
       document.removeEventListener("keydown", handler, true);
     };
   }, [toast]);
+
+  // Mouse leave/enter detection — blur screen when mouse leaves browser window
+  useEffect(() => {
+    const handleMouseLeave = () => {
+      setIsMouseOutside(true);
+      examiner.current?.sendProctoringEvent("mouse_left");
+    };
+    const handleMouseEnter = () => {
+      setIsMouseOutside(false);
+    };
+    document.documentElement.addEventListener("mouseleave", handleMouseLeave);
+    document.documentElement.addEventListener("mouseenter", handleMouseEnter);
+    return () => {
+      document.documentElement.removeEventListener("mouseleave", handleMouseLeave);
+      document.documentElement.removeEventListener("mouseenter", handleMouseEnter);
+    };
+  }, []);
 
   // AI tool and DevTools detection (best effort)
   useEffect(() => {
@@ -493,6 +511,31 @@ function App() {
               )}")`}
               backgroundRepeat="repeat"
             />
+            {/* Blur overlay when mouse leaves the browser window */}
+            {!isCreator && isMouseOutside && (
+              <Box
+                position="absolute"
+                top={0}
+                left={0}
+                right={0}
+                bottom={0}
+                zIndex={20}
+                backdropFilter="blur(8px)"
+                backgroundColor={darkMode ? "rgba(0, 0, 0, 0.5)" : "rgba(255, 255, 255, 0.5)"}
+                display="flex"
+                alignItems="center"
+                justifyContent="center"
+                pointerEvents="none"
+              >
+                <Text
+                  fontSize="2xl"
+                  fontWeight="bold"
+                  color={darkMode ? "red.300" : "red.600"}
+                >
+                  Return your mouse to the browser window
+                </Text>
+              </Box>
+            )}
           </Box>
         </Flex>
       </Flex>
