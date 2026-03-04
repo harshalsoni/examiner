@@ -23,11 +23,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-        with:
-          platforms: arm64
-
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -53,12 +48,13 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
-          platforms: |
-            ${{ github.event_name == 'push' && 'linux/amd64,linux/arm64' || 'linux/amd64' }}
+          platforms: linux/amd64
           push: ${{ github.event_name == 'push' }}
           build-args: GITHUB_SHA
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
       - name: Image digest
         run: echo ${{ steps.docker_build.outputs.digest }}
@@ -116,7 +112,7 @@ jobs:
           service: ${{ env.SERVICE_NAME }}
           region: ${{ env.GCP_REGION }}
           image: ${{ env.GCP_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.GAR_REPOSITORY }}/${{ env.SERVICE_NAME }}:${{ github.sha }}
-          flags: '--min-instances=0 --max-instances=3 --port=3030 --allow-unauthenticated --set-env-vars=RUST_LOG=info,PORT=3030,EXPIRY_DAYS=1'
+          flags: '--min-instances=0 --max-instances=3 --port=3030 --allow-unauthenticated --set-env-vars=RUST_LOG=info,EXPIRY_DAYS=1'
 
       - name: Show Cloud Run URL
         run: |

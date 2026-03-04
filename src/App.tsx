@@ -5,7 +5,7 @@ import {
   KeyCode,
   KeyMod,
 } from "monaco-editor/esm/vs/editor/editor.api";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { VscChevronRight, VscFolderOpened, VscGist } from "react-icons/vsc";
 import useLocalStorageState from "use-local-storage-state";
 
@@ -76,23 +76,124 @@ function App() {
   const [darkMode, setDarkMode] = useLocalStorageState("darkMode", {
     defaultValue: false,
   });
+  const [userFocusStatus, setUserFocusStatus] = useState<
+    Record<number, boolean>
+  >({});
+  const [focusLossCount, setFocusLossCount] = useState(0);
   const examiner = useRef<Examiner>();
   const id = useHash();
 
-  // Global page-level clipboard fallback
+  const handleFocusChange = useCallback(
+    (userId: number, blurred: boolean) => {
+      setUserFocusStatus((prev) => ({ ...prev, [userId]: blurred }));
+      if (blurred) {
+        toast({
+          title: "User switched away",
+          description: `A user has left the interview window.`,
+          status: "warning",
+          duration: 5000,
+          isClosable: true,
+        });
+      }
+    },
+    [toast],
+  );
+
+  // Global page-level clipboard fallback and context menu blocking
   useEffect(() => {
-    const handler = (e: ClipboardEvent) => {
+    const clipboardHandler = (e: ClipboardEvent) => {
       e.preventDefault();
     };
-    document.addEventListener("paste", handler, true);
-    document.addEventListener("copy", handler, true);
-    document.addEventListener("cut", handler, true);
+    const contextMenuHandler = (e: Event) => {
+      e.preventDefault();
+    };
+    document.addEventListener("paste", clipboardHandler, true);
+    document.addEventListener("copy", clipboardHandler, true);
+    document.addEventListener("cut", clipboardHandler, true);
+    document.addEventListener("contextmenu", contextMenuHandler, true);
     return () => {
-      document.removeEventListener("paste", handler, true);
-      document.removeEventListener("copy", handler, true);
-      document.removeEventListener("cut", handler, true);
+      document.removeEventListener("paste", clipboardHandler, true);
+      document.removeEventListener("copy", clipboardHandler, true);
+      document.removeEventListener("cut", clipboardHandler, true);
+      document.removeEventListener("contextmenu", contextMenuHandler, true);
     };
   }, []);
+
+  // Tab/window focus monitoring — detect when candidate switches away
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      const blurred = document.hidden;
+      examiner.current?.sendFocusChange(blurred);
+      if (blurred) {
+        setFocusLossCount((c) => c + 1);
+      }
+    };
+    const handleBlur = () => {
+      examiner.current?.sendFocusChange(true);
+      setFocusLossCount((c) => c + 1);
+      toast({
+        title: "Focus lost detected",
+        description:
+          "Switching away from the interview window is being recorded.",
+        status: "warning",
+        duration: 3000,
+        isClosable: true,
+      });
+    };
+    const handleFocus = () => {
+      examiner.current?.sendFocusChange(false);
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("blur", handleBlur);
+    window.addEventListener("focus", handleFocus);
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("blur", handleBlur);
+      window.removeEventListener("focus", handleFocus);
+    };
+  }, [toast]);
+
+  // Screenshot key blocking
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      // Block PrintScreen
+      if (e.key === "PrintScreen") {
+        e.preventDefault();
+        toast({
+          title: "Screenshots are not allowed",
+          description: "This action has been recorded.",
+          status: "error",
+          duration: 3000,
+          isClosable: true,
+        });
+        examiner.current?.sendFocusChange(true);
+        setFocusLossCount((c) => c + 1);
+        return;
+      }
+      // Block macOS screenshot shortcuts: Cmd+Shift+3/4/5
+      if (
+        e.metaKey &&
+        e.shiftKey &&
+        (e.key === "3" || e.key === "4" || e.key === "5")
+      ) {
+        e.preventDefault();
+        toast({
+          title: "Screenshots are not allowed",
+          description: "This action has been recorded.",
+          status: "error",
+          duration: 3000,
+          isClosable: true,
+        });
+        examiner.current?.sendFocusChange(true);
+        setFocusLossCount((c) => c + 1);
+        return;
+      }
+    };
+    document.addEventListener("keydown", handler, true);
+    return () => {
+      document.removeEventListener("keydown", handler, true);
+    };
+  }, [toast]);
 
   useEffect(() => {
     if (editorInstance?.getModel()) {
@@ -119,13 +220,14 @@ function App() {
           }
         },
         onChangeUsers: setUsers,
+        onFocusChange: handleFocusChange,
       });
       return () => {
         examiner.current?.dispose();
         examiner.current = undefined;
       };
     }
-  }, [id, editorInstance, toast, setUsers]);
+  }, [id, editorInstance, toast, setUsers, handleFocusChange]);
 
   useEffect(() => {
     if (connection === "connected") {
@@ -219,6 +321,8 @@ function App() {
           language={language}
           currentUser={{ name, hue }}
           users={users}
+          userFocusStatus={userFocusStatus}
+          focusLossCount={focusLossCount}
           onDarkModeChange={handleDarkModeChange}
           onLanguageChange={handleLanguageChange}
           onUploadQuestions={handleUploadQuestions}
@@ -243,7 +347,7 @@ function App() {
             <Icon as={VscGist} fontSize="md" color="purple.500" />
             <Text>{id}</Text>
           </HStack>
-          <Box flex={1} minH={0}>
+          <Box flex={1} minH={0} position="relative">
             <Editor
               theme={darkMode ? "vs-dark" : "vs"}
               language={language}
@@ -257,6 +361,23 @@ function App() {
                 enableProctoredMode(ed);
                 setEditorInstance(ed);
               }}
+            />
+            {/* Watermark overlay — makes screenshots traceable */}
+            <Box
+              position="absolute"
+              top={0}
+              left={0}
+              right={0}
+              bottom={0}
+              pointerEvents="none"
+              zIndex={10}
+              opacity={0.06}
+              backgroundImage={`url("data:image/svg+xml,${encodeURIComponent(
+                `<svg xmlns='http://www.w3.org/2000/svg' width='300' height='200'>
+                  <text transform='rotate(-30 150 100)' x='50%' y='50%' font-family='monospace' font-size='14' fill='${darkMode ? "white" : "black"}' text-anchor='middle' dominant-baseline='middle'>${name} | ${id}</text>
+                </svg>`,
+              )}")`}
+              backgroundRepeat="repeat"
             />
           </Box>
         </Flex>

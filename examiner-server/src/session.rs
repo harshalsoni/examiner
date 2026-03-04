@@ -70,6 +70,8 @@ enum ClientMsg {
     ClientInfo(UserInfo),
     /// Sets the user's cursor and selection positions.
     CursorData(CursorData),
+    /// Reports a focus change (tab switch / window blur).
+    FocusChange { blurred: bool },
 }
 
 /// A message sent to the client over WebSocket.
@@ -88,6 +90,8 @@ enum ServerMsg {
     UserInfo { id: u64, info: Option<UserInfo> },
     /// Broadcasts a user's cursor position.
     UserCursor { id: u64, data: CursorData },
+    /// Broadcasts a user's focus change (tab switch / window blur).
+    UserFocus { id: u64, blurred: bool },
 }
 
 impl From<ServerMsg> for Message {
@@ -294,6 +298,10 @@ impl Examiner {
             ClientMsg::CursorData(data) => {
                 self.state.write().cursors.insert(id, data.clone());
                 let msg = ServerMsg::UserCursor { id, data };
+                self.update.send(msg).ok();
+            }
+            ClientMsg::FocusChange { blurred } => {
+                let msg = ServerMsg::UserFocus { id, blurred };
                 self.update.send(msg).ok();
             }
         }
