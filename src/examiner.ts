@@ -16,6 +16,7 @@ export type ExaminerOptions = {
   readonly onChangeLanguage?: (language: string) => void;
   readonly onChangeUsers?: (users: Record<number, UserInfo>) => void;
   readonly onFocusChange?: (userId: number, blurred: boolean) => void;
+  readonly onProctoringEvent?: (userId: number, eventType: string) => void;
   readonly reconnectInterval?: number;
 };
 
@@ -114,6 +115,11 @@ class Examiner {
     this.ws?.send(JSON.stringify({ FocusChange: { blurred } }));
   }
 
+  /** Report a proctoring event (copy attempt, paste attempt, etc.). */
+  sendProctoringEvent(eventType: string) {
+    this.ws?.send(JSON.stringify({ ProctoringEvent: { event_type: eventType } }));
+  }
+
   /**
    * Attempts a WebSocket connection.
    *
@@ -207,6 +213,11 @@ class Examiner {
       const { id, blurred } = msg.UserFocus;
       if (id !== this.me) {
         this.options.onFocusChange?.(id, blurred);
+      }
+    } else if (msg.ProctoringEvent !== undefined) {
+      const { id, event_type } = msg.ProctoringEvent;
+      if (id !== this.me) {
+        this.options.onProctoringEvent?.(id, event_type);
       }
     }
   }
@@ -466,6 +477,10 @@ type ServerMsg = {
   UserFocus?: {
     id: number;
     blurred: boolean;
+  };
+  ProctoringEvent?: {
+    id: number;
+    event_type: string;
   };
 };
 

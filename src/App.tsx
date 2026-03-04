@@ -30,6 +30,39 @@ function generateHue() {
   return Math.floor(Math.random() * 360);
 }
 
+/** Compute a deterministic token from session ID to identify the examiner. */
+function computeExaminerToken(sessionId: string): string {
+  const input = sessionId + "::proctoring::v1";
+  let h = 0x811c9dc5;
+  for (let i = 0; i < input.length; i++) {
+    h ^= input.charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
+  }
+  return (h >>> 0).toString(36);
+}
+
+/** Check if the current user is the examiner based on URL token. */
+function checkIsCreator(sessionId: string): boolean {
+  const params = new URLSearchParams(window.location.search);
+  const token = params.get("t");
+  if (!token) return false;
+  return token === computeExaminerToken(sessionId);
+}
+
+/** On first visit (no token), inject the examiner token into the URL. */
+function initExaminerUrl(sessionId: string) {
+  const params = new URLSearchParams(window.location.search);
+  if (!params.has("t")) {
+    const token = computeExaminerToken(sessionId);
+    params.set("t", token);
+    const newUrl = `${window.location.pathname}?${params.toString()}${window.location.hash}`;
+    window.history.replaceState(null, "", newUrl);
+  }
+}
+
+/** Per-user proctoring stats type. */
+export type ProctoringStats = Record<number, Record<string, number>>;
+
 /** Enables proctored mode on a Monaco editor instance, blocking clipboard and drag-drop. */
 function enableProctoredMode(ed: editor.IStandaloneCodeEditor) {
   // Layer 1: Override Monaco clipboard keybindings
@@ -80,13 +113,30 @@ function App() {
     Record<number, boolean>
   >({});
   const [focusLossCount, setFocusLossCount] = useState(0);
+  const [userProctoringStats, setUserProctoringStats] =
+    useState<ProctoringStats>({});
   const examiner = useRef<Examiner>();
   const id = useHash();
+
+  // Role detection: examiner has a valid token in URL, candidates don't.
+  // On first visit (no params), we inject the examiner token automatically.
+  const [isCreator] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (!params.has("t")) {
+      // First visit — this is the session creator (examiner)
+      initExaminerUrl(id);
+      return true;
+    }
+    return checkIsCreator(id);
+  });
+
+  // Track AI tool detection flags to avoid duplicate events
+  const aiDetectedRef = useRef<Set<string>>(new Set());
 
   const handleFocusChange = useCallback(
     (userId: number, blurred: boolean) => {
       setUserFocusStatus((prev) => ({ ...prev, [userId]: blurred }));
-      if (blurred) {
+      if (isCreator && blurred) {
         toast({
           title: "User switched away",
           description: `A user has left the interview window.`,
@@ -96,13 +146,36 @@ function App() {
         });
       }
     },
-    [toast],
+    [toast, isCreator],
+  );
+
+  const handleProctoringEvent = useCallback(
+    (userId: number, eventType: string) => {
+      setUserProctoringStats((prev) => {
+        const userStats = prev[userId] ?? {};
+        return {
+          ...prev,
+          [userId]: {
+            ...userStats,
+            [eventType]: (userStats[eventType] ?? 0) + 1,
+          },
+        };
+      });
+    },
+    [],
   );
 
   // Global page-level clipboard fallback and context menu blocking
   useEffect(() => {
     const clipboardHandler = (e: ClipboardEvent) => {
       e.preventDefault();
+      const eventType =
+        e.type === "paste"
+          ? "paste_attempt"
+          : e.type === "cut"
+            ? "cut_attempt"
+            : "copy_attempt";
+      examiner.current?.sendProctoringEvent(eventType);
     };
     const contextMenuHandler = (e: Event) => {
       e.preventDefault();
@@ -126,19 +199,23 @@ function App() {
       examiner.current?.sendFocusChange(blurred);
       if (blurred) {
         setFocusLossCount((c) => c + 1);
+        examiner.current?.sendProctoringEvent("tab_switch");
       }
     };
     const handleBlur = () => {
       examiner.current?.sendFocusChange(true);
       setFocusLossCount((c) => c + 1);
-      toast({
-        title: "Focus lost detected",
-        description:
-          "Switching away from the interview window is being recorded.",
-        status: "warning",
-        duration: 3000,
-        isClosable: true,
-      });
+      examiner.current?.sendProctoringEvent("tab_switch");
+      if (!isCreator) {
+        toast({
+          title: "Focus lost detected",
+          description:
+            "Switching away from the interview window is being recorded.",
+          status: "warning",
+          duration: 3000,
+          isClosable: true,
+        });
+      }
     };
     const handleFocus = () => {
       examiner.current?.sendFocusChange(false);
@@ -151,7 +228,7 @@ function App() {
       window.removeEventListener("blur", handleBlur);
       window.removeEventListener("focus", handleFocus);
     };
-  }, [toast]);
+  }, [toast, isCreator]);
 
   // Screenshot key blocking
   useEffect(() => {
@@ -166,7 +243,7 @@ function App() {
           duration: 3000,
           isClosable: true,
         });
-        examiner.current?.sendFocusChange(true);
+        examiner.current?.sendProctoringEvent("screenshot_attempt");
         setFocusLossCount((c) => c + 1);
         return;
       }
@@ -184,7 +261,7 @@ function App() {
           duration: 3000,
           isClosable: true,
         });
-        examiner.current?.sendFocusChange(true);
+        examiner.current?.sendProctoringEvent("screenshot_attempt");
         setFocusLossCount((c) => c + 1);
         return;
       }
@@ -194,6 +271,55 @@ function App() {
       document.removeEventListener("keydown", handler, true);
     };
   }, [toast]);
+
+  // AI tool and DevTools detection (best effort)
+  useEffect(() => {
+    const detected = aiDetectedRef.current;
+
+    const checkAiTools = () => {
+      // Detect DevTools via window dimension heuristic
+      const widthDiff = window.outerWidth - window.innerWidth;
+      const heightDiff = window.outerHeight - window.innerHeight;
+      if (
+        (widthDiff > 200 || heightDiff > 200) &&
+        !detected.has("devtools")
+      ) {
+        detected.add("devtools");
+        examiner.current?.sendProctoringEvent("devtools_open");
+      }
+
+      // Scan for known AI Chrome extension DOM injections
+      const aiSelectors = [
+        '[id*="claude"]',
+        '[class*="claude"]',
+        '[id*="chatgpt"]',
+        '[class*="chatgpt"]',
+        '[id*="copilot"]',
+        '[class*="copilot"]',
+        '[id*="codeium"]',
+        '[class*="codeium"]',
+        '[id*="cursor"]',
+        '[class*="cursor-ai"]',
+        '[id*="grammarly"]',
+      ];
+      for (const selector of aiSelectors) {
+        try {
+          const el = document.querySelector(selector);
+          if (el && !detected.has(selector)) {
+            detected.add(selector);
+            examiner.current?.sendProctoringEvent("ai_tool_detected");
+          }
+        } catch {
+          // Ignore invalid selectors
+        }
+      }
+    };
+
+    const intervalId = window.setInterval(checkAiTools, 5000);
+    // Run once immediately
+    checkAiTools();
+    return () => window.clearInterval(intervalId);
+  }, []);
 
   useEffect(() => {
     if (editorInstance?.getModel()) {
@@ -221,13 +347,14 @@ function App() {
         },
         onChangeUsers: setUsers,
         onFocusChange: handleFocusChange,
+        onProctoringEvent: handleProctoringEvent,
       });
       return () => {
         examiner.current?.dispose();
         examiner.current = undefined;
       };
     }
-  }, [id, editorInstance, toast, setUsers, handleFocusChange]);
+  }, [id, editorInstance, toast, setUsers, handleFocusChange, handleProctoringEvent]);
 
   useEffect(() => {
     if (connection === "connected") {
@@ -303,16 +430,6 @@ function App() {
       bgColor={darkMode ? "#1e1e1e" : "white"}
       color={darkMode ? "#cbcaca" : "inherit"}
     >
-      <Box
-        flexShrink={0}
-        bgColor="#c62828"
-        color="white"
-        textAlign="center"
-        fontSize="sm"
-        py={0.5}
-      >
-        Examiner — Proctored Mode
-      </Box>
       <Flex flex="1 0" minH={0}>
         <Sidebar
           documentId={id}
@@ -323,6 +440,8 @@ function App() {
           users={users}
           userFocusStatus={userFocusStatus}
           focusLossCount={focusLossCount}
+          isCreator={isCreator}
+          userProctoringStats={userProctoringStats}
           onDarkModeChange={handleDarkModeChange}
           onLanguageChange={handleLanguageChange}
           onUploadQuestions={handleUploadQuestions}
