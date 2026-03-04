@@ -116,14 +116,13 @@ function App() {
   const [userProctoringStats, setUserProctoringStats] =
     useState<ProctoringStats>({});
   const examiner = useRef<Examiner>();
-  const id = useHash();
+  const { id, isNewSession } = useHash();
 
-  // Role detection: examiner has a valid token in URL, candidates don't.
-  // On first visit (no params), we inject the examiner token automatically.
+  // Role detection: examiner is the user who created the session (generated the hash).
+  // Candidates arrive via a shared link where the hash already exists in the URL.
   const [isCreator] = useState(() => {
-    const params = new URLSearchParams(window.location.search);
-    if (!params.has("t")) {
-      // First visit — this is the session creator (examiner)
+    if (isNewSession) {
+      // This browser generated the hash — this is the session creator (examiner)
       initExaminerUrl(id);
       return true;
     }
@@ -136,17 +135,8 @@ function App() {
   const handleFocusChange = useCallback(
     (userId: number, blurred: boolean) => {
       setUserFocusStatus((prev) => ({ ...prev, [userId]: blurred }));
-      if (isCreator && blurred) {
-        toast({
-          title: "User switched away",
-          description: `A user has left the interview window.`,
-          status: "warning",
-          duration: 5000,
-          isClosable: true,
-        });
-      }
     },
-    [toast, isCreator],
+    [],
   );
 
   const handleProctoringEvent = useCallback(
@@ -206,16 +196,6 @@ function App() {
       examiner.current?.sendFocusChange(true);
       setFocusLossCount((c) => c + 1);
       examiner.current?.sendProctoringEvent("tab_switch");
-      if (!isCreator) {
-        toast({
-          title: "Focus lost detected",
-          description:
-            "Switching away from the interview window is being recorded.",
-          status: "warning",
-          duration: 3000,
-          isClosable: true,
-        });
-      }
     };
     const handleFocus = () => {
       examiner.current?.sendFocusChange(false);
@@ -228,7 +208,7 @@ function App() {
       window.removeEventListener("blur", handleBlur);
       window.removeEventListener("focus", handleFocus);
     };
-  }, [toast, isCreator]);
+  }, []);
 
   // Screenshot key blocking
   useEffect(() => {
