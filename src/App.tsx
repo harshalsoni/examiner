@@ -64,12 +64,23 @@ function initExaminerUrl(sessionId: string) {
 export type ProctoringStats = Record<number, Record<string, number>>;
 
 /** Enables proctored mode on a Monaco editor instance, blocking clipboard and drag-drop. */
-function enableProctoredMode(ed: editor.IStandaloneCodeEditor) {
+function enableProctoredMode(
+  ed: editor.IStandaloneCodeEditor,
+  onClipboardAttempt?: (eventType: string) => void,
+) {
   // Layer 1: Override Monaco clipboard keybindings
-  ed.addCommand(KeyMod.CtrlCmd | KeyCode.KeyC, () => {});
-  ed.addCommand(KeyMod.CtrlCmd | KeyCode.KeyX, () => {});
-  ed.addCommand(KeyMod.CtrlCmd | KeyCode.KeyV, () => {});
-  ed.addCommand(KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.KeyV, () => {});
+  ed.addCommand(KeyMod.CtrlCmd | KeyCode.KeyC, () => {
+    onClipboardAttempt?.("copy_attempt");
+  });
+  ed.addCommand(KeyMod.CtrlCmd | KeyCode.KeyX, () => {
+    onClipboardAttempt?.("cut_attempt");
+  });
+  ed.addCommand(KeyMod.CtrlCmd | KeyCode.KeyV, () => {
+    onClipboardAttempt?.("paste_attempt");
+  });
+  ed.addCommand(KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.KeyV, () => {
+    onClipboardAttempt?.("paste_attempt");
+  });
 
   // Layer 2: DOM-level clipboard event blocking
   const domNode = ed.getDomNode();
@@ -193,9 +204,11 @@ function App() {
       }
     };
     const handleBlur = () => {
-      examiner.current?.sendFocusChange(true);
-      setFocusLossCount((c) => c + 1);
-      examiner.current?.sendProctoringEvent("tab_switch");
+      // Only update focus state; counting is handled by visibilitychange
+      // to avoid double-incrementing (both events fire on tab switch).
+      if (!document.hidden) {
+        examiner.current?.sendFocusChange(true);
+      }
     };
     const handleFocus = () => {
       examiner.current?.sendFocusChange(false);
@@ -457,7 +470,9 @@ function App() {
                 dragAndDrop: false,
               }}
               onMount={(ed) => {
-                enableProctoredMode(ed);
+                enableProctoredMode(ed, (eventType) => {
+                  examiner.current?.sendProctoringEvent(eventType);
+                });
                 setEditorInstance(ed);
               }}
             />
