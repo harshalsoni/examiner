@@ -1,4 +1,12 @@
-import { Box, Flex, HStack, Icon, Text, useToast } from "@chakra-ui/react";
+import {
+  Box,
+  Button,
+  Flex,
+  HStack,
+  Icon,
+  Text,
+  useToast,
+} from "@chakra-ui/react";
 import Editor from "@monaco-editor/react";
 import {
   KeyCode,
@@ -6,11 +14,18 @@ import {
   editor,
 } from "monaco-editor/esm/vs/editor/editor.api";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { VscChevronRight, VscFolderOpened, VscGist } from "react-icons/vsc";
+import {
+  VscChevronRight,
+  VscCode,
+  VscFolderOpened,
+  VscGist,
+  VscSymbolMisc,
+} from "react-icons/vsc";
 import useLocalStorageState from "use-local-storage-state";
 
 import Footer from "./Footer";
 import Sidebar from "./Sidebar";
+import Whiteboard from "./Whiteboard";
 import animals from "./animals.json";
 import Examiner, { UserInfo } from "./examiner";
 import languages from "./languages.json";
@@ -127,6 +142,7 @@ function App() {
   const [userProctoringStats, setUserProctoringStats] =
     useState<ProctoringStats>({});
   const [isMouseOutside, setIsMouseOutside] = useState(false);
+  const [mode, setMode] = useState<"code" | "whiteboard">("code");
   const examiner = useRef<Examiner>();
   const { id, isNewSession } = useHash();
 
@@ -477,30 +493,64 @@ function App() {
             fontSize="13px"
             px={3.5}
             flexShrink={0}
+            justifyContent="space-between"
           >
-            <Icon as={VscFolderOpened} fontSize="md" color="blue.500" />
-            <Text>documents</Text>
-            <Icon as={VscChevronRight} fontSize="md" />
-            <Icon as={VscGist} fontSize="md" color="purple.500" />
-            <Text>{id}</Text>
+            <HStack spacing={1}>
+              <Icon as={VscFolderOpened} fontSize="md" color="blue.500" />
+              <Text>documents</Text>
+              <Icon as={VscChevronRight} fontSize="md" />
+              <Icon as={VscGist} fontSize="md" color="purple.500" />
+              <Text>{id}</Text>
+            </HStack>
+            <HStack spacing={0}>
+              <Button
+                size="xs"
+                variant={mode === "code" ? "solid" : "ghost"}
+                colorScheme={mode === "code" ? "blue" : "gray"}
+                leftIcon={<Icon as={VscCode} />}
+                fontWeight={mode === "code" ? "semibold" : "normal"}
+                borderRadius="md"
+                onClick={() => setMode("code")}
+              >
+                Code
+              </Button>
+              <Button
+                size="xs"
+                variant={mode === "whiteboard" ? "solid" : "ghost"}
+                colorScheme={mode === "whiteboard" ? "blue" : "gray"}
+                leftIcon={<Icon as={VscSymbolMisc} />}
+                fontWeight={mode === "whiteboard" ? "semibold" : "normal"}
+                borderRadius="md"
+                onClick={() => setMode("whiteboard")}
+              >
+                Whiteboard
+              </Button>
+            </HStack>
           </HStack>
           <Box flex={1} minH={0} position="relative">
-            <Editor
-              theme={darkMode ? "vs-dark" : "vs"}
-              language={language}
-              options={{
-                automaticLayout: true,
-                fontSize: 13,
-                contextmenu: false,
-                dragAndDrop: false,
-              }}
-              onMount={(ed) => {
-                enableProctoredMode(ed, (eventType) => {
-                  examiner.current?.sendProctoringEvent(eventType);
-                });
-                setEditorInstance(ed);
-              }}
-            />
+            <Box display={mode === "code" ? "block" : "none"} w="100%" h="100%">
+              <Editor
+                theme={darkMode ? "vs-dark" : "vs"}
+                language={language}
+                options={{
+                  automaticLayout: true,
+                  fontSize: 13,
+                  contextmenu: false,
+                  dragAndDrop: false,
+                }}
+                onMount={(ed) => {
+                  enableProctoredMode(ed, (eventType) => {
+                    examiner.current?.sendProctoringEvent(eventType);
+                  });
+                  setEditorInstance(ed);
+                }}
+              />
+            </Box>
+            {mode === "whiteboard" && (
+              <Box w="100%" h="100%">
+                <Whiteboard darkMode={darkMode} />
+              </Box>
+            )}
             {/* Watermark overlay — makes screenshots traceable */}
             <Box
               position="absolute"
