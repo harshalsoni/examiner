@@ -60,7 +60,7 @@ export default function Whiteboard({ darkMode }: WhiteboardProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [tool, setTool] = useState<Tool>("pen");
   const [color, setColor] = useState("#3182CE");
-  const [strokeWidth, setStrokeWidth] = useState(3);
+  const [strokeWidth, setStrokeWidth] = useState(2);
   const [actions, setActions] = useState<DrawAction[]>([]);
   const [undone, setUndone] = useState<DrawAction[]>([]);
   const drawing = useRef(false);
@@ -327,23 +327,23 @@ export default function Whiteboard({ darkMode }: WhiteboardProps) {
     startPoint.current = null;
   }
 
-  function handleUndo() {
+  const handleUndo = useCallback(() => {
     setActions((prev) => {
       if (prev.length === 0) return prev;
       const last = prev[prev.length - 1];
       setUndone((u) => [...u, last]);
       return prev.slice(0, -1);
     });
-  }
+  }, []);
 
-  function handleRedo() {
+  const handleRedo = useCallback(() => {
     setUndone((prev) => {
       if (prev.length === 0) return prev;
       const last = prev[prev.length - 1];
       setActions((a) => [...a, last]);
       return prev.slice(0, -1);
     });
-  }
+  }, []);
 
   function handleClear() {
     setActions([]);
@@ -364,7 +364,7 @@ export default function Whiteboard({ darkMode }: WhiteboardProps) {
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, []);
+  }, [handleUndo, handleRedo]);
 
   const toolbarBg = darkMode ? "#2d2d2d" : "#f7f7f7";
   const toolbarBorder = darkMode ? "#444" : "#e2e2e2";
@@ -524,12 +524,7 @@ export default function Whiteboard({ darkMode }: WhiteboardProps) {
           display: "block",
           width: "100%",
           height: "100%",
-          cursor:
-            tool === "eraser"
-              ? "crosshair"
-              : tool === "pen"
-                ? "crosshair"
-                : "crosshair",
+          cursor: "crosshair",
         }}
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
