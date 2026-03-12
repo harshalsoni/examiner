@@ -14,7 +14,7 @@ import {
   useToast,
 } from "@chakra-ui/react";
 import { useRef } from "react";
-import { VscCloudDownload, VscCloudUpload } from "react-icons/vsc";
+import { VscCloudDownload, VscCloudUpload, VscNote } from "react-icons/vsc";
 
 import type { ProctoringStats } from "./App";
 import ConnectionStatus from "./ConnectionStatus";
@@ -54,6 +54,7 @@ export type SidebarProps = {
   onLanguageChange: (language: string) => void;
   onUploadQuestions: (text: string) => void;
   onDownloadCode: () => void;
+  onDownloadNotes: () => void;
   onChangeName: (name: string) => void;
   onChangeColor: () => void;
 };
@@ -73,6 +74,7 @@ function Sidebar({
   onLanguageChange,
   onUploadQuestions,
   onDownloadCode,
+  onDownloadNotes,
   onChangeName,
   onChangeColor,
 }: SidebarProps) {
@@ -290,6 +292,17 @@ function Sidebar({
               onClick={onDownloadCode}
             >
               Download Code
+            </Button>
+            <Button
+              size="sm"
+              colorScheme={darkMode ? "whiteAlpha" : "blackAlpha"}
+              borderColor={darkMode ? "purple.400" : "purple.600"}
+              color={darkMode ? "purple.400" : "purple.600"}
+              variant="outline"
+              leftIcon={<VscNote />}
+              onClick={onDownloadNotes}
+            >
+              Download Notes
             </Button>
           </Stack>
         </>

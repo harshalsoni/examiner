@@ -24,6 +24,7 @@ import {
 import useLocalStorageState from "use-local-storage-state";
 
 import Footer from "./Footer";
+import Scratchpad from "./Scratchpad";
 import Sidebar from "./Sidebar";
 import Whiteboard from "./Whiteboard";
 import animals from "./animals.json";
@@ -143,6 +144,14 @@ function App() {
     useState<ProctoringStats>({});
   const [isMouseOutside, setIsMouseOutside] = useState(false);
   const [mode, setMode] = useState<"code" | "whiteboard">("code");
+  const [scratchpadNotes, setScratchpadNotes] = useLocalStorageState(
+    "scratchpadNotes",
+    { defaultValue: "" },
+  );
+  const [scratchpadOpen, setScratchpadOpen] = useLocalStorageState(
+    "scratchpadOpen",
+    { defaultValue: true },
+  );
   const examiner = useRef<Examiner>();
   const { id, isNewSession } = useHash();
 
@@ -452,6 +461,16 @@ function App() {
     }
   }
 
+  function handleDownloadNotes() {
+    const blob = new Blob([scratchpadNotes], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `examiner-notes-${id}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
   function handleDarkModeChange() {
     setDarkMode(!darkMode);
   }
@@ -480,6 +499,7 @@ function App() {
           onLanguageChange={handleLanguageChange}
           onUploadQuestions={handleUploadQuestions}
           onDownloadCode={handleDownloadCode}
+          onDownloadNotes={handleDownloadNotes}
           onChangeName={(name) => name.length > 0 && setName(name)}
           onChangeColor={() => setHue(generateHue())}
         />
@@ -637,6 +657,16 @@ function App() {
             )}
           </Box>
         </Flex>
+
+        {isCreator && (
+          <Scratchpad
+            darkMode={darkMode}
+            notes={scratchpadNotes}
+            isOpen={scratchpadOpen}
+            onNotesChange={setScratchpadNotes}
+            onToggle={() => setScratchpadOpen(!scratchpadOpen)}
+          />
+        )}
       </Flex>
       <Footer />
     </Flex>
