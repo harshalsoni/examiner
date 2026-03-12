@@ -380,7 +380,30 @@ export default function Whiteboard({ darkMode }: WhiteboardProps) {
         }
         return updated;
       });
+    } else {
+      // Remove empty text-only actions to keep undo/redo history clean
+      setActions((prev) => {
+        const action = prev[textEditing.actionIndex];
+        if (action && action.type === "text" && !action.text) {
+          return prev.filter((_, i) => i !== textEditing.actionIndex);
+        }
+        return prev;
+      });
     }
+    setTextEditing(null);
+    setTextInputValue("");
+  }
+
+  function cancelTextEditing() {
+    if (textEditing === null) return;
+    // Remove empty text-only actions on cancel
+    setActions((prev) => {
+      const action = prev[textEditing.actionIndex];
+      if (action && action.type === "text" && !action.text) {
+        return prev.filter((_, i) => i !== textEditing.actionIndex);
+      }
+      return prev;
+    });
     setTextEditing(null);
     setTextInputValue("");
   }
@@ -432,17 +455,14 @@ export default function Whiteboard({ darkMode }: WhiteboardProps) {
         fontSize,
         textAlign,
       };
-      setActions((prev) => {
-        const newActions = [...prev, newAction];
-        const idx = newActions.length - 1;
-        setTextEditing({
-          actionIndex: idx,
-          x: pt.x - 150,
-          y: pt.y - 20,
-          w: 300,
-          h: 40,
-        });
-        return newActions;
+      const idx = actions.length;
+      setActions([...actions, newAction]);
+      setTextEditing({
+        actionIndex: idx,
+        x: pt.x - 150,
+        y: pt.y - 20,
+        w: 300,
+        h: 40,
       });
       setUndone([]);
       setTextInputValue("");
@@ -534,20 +554,17 @@ export default function Whiteboard({ darkMode }: WhiteboardProps) {
     }
 
     if (action) {
-      setActions((prev) => {
-        const newActions = [...prev, action!];
-        // Show text input for shape tools that support inline text
-        if (TEXT_SHAPE_TYPES.has(action!.type)) {
-          const bounds = getShapeBounds(action!);
-          if (bounds) {
-            const idx = newActions.length - 1;
-            setTextEditing({ actionIndex: idx, ...bounds });
-            setTextInputValue("");
-          }
-        }
-        return newActions;
-      });
+      const idx = actions.length;
+      setActions([...actions, action]);
       setUndone([]);
+      // Show text input for shape tools that support inline text
+      if (TEXT_SHAPE_TYPES.has(action.type)) {
+        const bounds = getShapeBounds(action);
+        if (bounds) {
+          setTextEditing({ actionIndex: idx, ...bounds });
+          setTextInputValue("");
+        }
+      }
     }
 
     currentPoints.current = [];
@@ -825,6 +842,7 @@ export default function Whiteboard({ darkMode }: WhiteboardProps) {
       {textEditing && (
         <textarea
           ref={textInputRef}
+          aria-label="Shape text input"
           autoFocus
           value={textInputValue}
           onChange={(e) => setTextInputValue(e.target.value)}
@@ -833,11 +851,16 @@ export default function Whiteboard({ darkMode }: WhiteboardProps) {
               e.preventDefault();
               commitTextEditing();
             } else if (e.key === "Escape") {
-              setTextEditing(null);
-              setTextInputValue("");
+              cancelTextEditing();
             }
           }}
-          onBlur={() => commitTextEditing()}
+          onBlur={() => {
+            if (!textInputValue || textInputValue.trim() === "") {
+              cancelTextEditing();
+            } else {
+              commitTextEditing();
+            }
+          }}
           style={{
             position: "absolute",
             left: `${textEditing.x}px`,
