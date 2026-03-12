@@ -1,4 +1,4 @@
-import { Box, Flex, IconButton, Tooltip } from "@chakra-ui/react";
+import { Box, Flex, IconButton, Select, Tooltip } from "@chakra-ui/react";
 import {
   useCallback,
   useEffect,
@@ -15,9 +15,11 @@ import {
   VscTrash,
 } from "react-icons/vsc";
 
-type Tool = "pen" | "line" | "rect" | "circle" | "arrow" | "eraser";
+type Tool = "pen" | "line" | "rect" | "circle" | "arrow" | "eraser" | "text";
 
 type Point = { x: number; y: number };
+
+type TextAlign = "left" | "center" | "right";
 
 type DrawAction =
   | { type: "pen"; points: Point[]; color: string; width: number }
@@ -27,6 +29,9 @@ type DrawAction =
       end: Point;
       color: string;
       width: number;
+      text?: string;
+      fontSize?: number;
+      textAlign?: TextAlign;
     }
   | {
       type: "rect" | "circle";
@@ -34,8 +39,23 @@ type DrawAction =
       end: Point;
       color: string;
       width: number;
+      text?: string;
+      fontSize?: number;
+      textAlign?: TextAlign;
     }
-  | { type: "eraser"; points: Point[]; width: number };
+  | { type: "eraser"; points: Point[]; width: number }
+  | {
+      type: "text";
+      position: Point;
+      text: string;
+      color: string;
+      fontSize: number;
+      textAlign: TextAlign;
+    };
+
+const FONT_SIZES = [12, 16, 20, 24, 32];
+
+const TEXT_SHAPE_TYPES = new Set(["rect", "circle", "line", "arrow"]);
 
 const COLORS = [
   "#E53E3E",
@@ -63,9 +83,22 @@ export default function Whiteboard({ darkMode }: WhiteboardProps) {
   const [strokeWidth, setStrokeWidth] = useState(2);
   const [actions, setActions] = useState<DrawAction[]>([]);
   const [undone, setUndone] = useState<DrawAction[]>([]);
+  const [fontSize, setFontSize] = useState(16);
+  const [textAlign, setTextAlign] = useState<TextAlign>("center");
   const drawing = useRef(false);
   const currentPoints = useRef<Point[]>([]);
   const startPoint = useRef<Point | null>(null);
+
+  // Text editing overlay state
+  const [textEditing, setTextEditing] = useState<{
+    actionIndex: number;
+    x: number;
+    y: number;
+    w: number;
+    h: number;
+  } | null>(null);
+  const [textInputValue, setTextInputValue] = useState("");
+  const textInputRef = useRef<HTMLTextAreaElement>(null);
 
   const bgColor = darkMode ? "#1e1e1e" : "#ffffff";
 
@@ -180,6 +213,21 @@ export default function Whiteboard({ darkMode }: WhiteboardProps) {
       ctx.moveTo(action.start.x, action.start.y);
       ctx.lineTo(action.end.x, action.end.y);
       ctx.stroke();
+      // Render inline text for line
+      if (action.text) {
+        const cx = (action.start.x + action.end.x) / 2;
+        const cy = (action.start.y + action.end.y) / 2;
+        renderShapeText(
+          ctx,
+          action.text,
+          cx,
+          cy,
+          120,
+          action.fontSize ?? 16,
+          action.textAlign ?? "center",
+          action.color,
+        );
+      }
     } else if (action.type === "arrow") {
       ctx.strokeStyle = action.color;
       ctx.fillStyle = action.color;
@@ -206,6 +254,21 @@ export default function Whiteboard({ darkMode }: WhiteboardProps) {
       );
       ctx.closePath();
       ctx.fill();
+      // Render inline text for arrow
+      if (action.text) {
+        const cx = (action.start.x + action.end.x) / 2;
+        const cy = (action.start.y + action.end.y) / 2;
+        renderShapeText(
+          ctx,
+          action.text,
+          cx,
+          cy,
+          120,
+          action.fontSize ?? 16,
+          action.textAlign ?? "center",
+          action.color,
+        );
+      }
     } else if (action.type === "rect") {
       ctx.strokeStyle = action.color;
       ctx.lineWidth = action.width;
@@ -214,6 +277,19 @@ export default function Whiteboard({ darkMode }: WhiteboardProps) {
       const w = Math.abs(action.end.x - action.start.x);
       const h = Math.abs(action.end.y - action.start.y);
       ctx.strokeRect(x, y, w, h);
+      // Render inline text for rect
+      if (action.text) {
+        renderShapeText(
+          ctx,
+          action.text,
+          x + w / 2,
+          y + h / 2,
+          w - 8,
+          action.fontSize ?? 16,
+          action.textAlign ?? "center",
+          action.color,
+        );
+      }
     } else if (action.type === "circle") {
       ctx.strokeStyle = action.color;
       ctx.lineWidth = action.width;
@@ -224,7 +300,61 @@ export default function Whiteboard({ darkMode }: WhiteboardProps) {
       ctx.beginPath();
       ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
       ctx.stroke();
+      // Render inline text for circle
+      if (action.text) {
+        renderShapeText(
+          ctx,
+          action.text,
+          cx,
+          cy,
+          rx * 1.4,
+          action.fontSize ?? 16,
+          action.textAlign ?? "center",
+          action.color,
+        );
+      }
+    } else if (action.type === "text") {
+      renderShapeText(
+        ctx,
+        action.text,
+        action.position.x,
+        action.position.y,
+        300,
+        action.fontSize,
+        action.textAlign,
+        action.color,
+      );
     }
+  }
+
+  function renderShapeText(
+    ctx: CanvasRenderingContext2D,
+    text: string,
+    cx: number,
+    cy: number,
+    maxWidth: number,
+    size: number,
+    align: TextAlign,
+    textColor: string,
+  ) {
+    if (!text) return;
+    const clampedWidth = Math.max(maxWidth, 20);
+    ctx.save();
+    ctx.font = `${size}px sans-serif`;
+    ctx.fillStyle = textColor;
+    ctx.textAlign = align;
+    ctx.textBaseline = "middle";
+    const lines = text.split("\n");
+    const lineHeight = size * 1.2;
+    const totalHeight = lines.length * lineHeight;
+    const startY = cy - totalHeight / 2 + lineHeight / 2;
+    let xPos = cx;
+    if (align === "left") xPos = cx - clampedWidth / 2;
+    else if (align === "right") xPos = cx + clampedWidth / 2;
+    for (let i = 0; i < lines.length; i++) {
+      ctx.fillText(lines[i], xPos, startY + i * lineHeight, clampedWidth);
+    }
+    ctx.restore();
   }
 
   function getCanvasPoint(e: React.MouseEvent<HTMLCanvasElement>): Point {
@@ -233,8 +363,111 @@ export default function Whiteboard({ darkMode }: WhiteboardProps) {
     return { x: e.clientX - rect.left, y: e.clientY - rect.top };
   }
 
+  function commitTextEditing() {
+    if (textEditing === null) return;
+    const value = textInputRef.current?.value ?? textInputValue;
+    if (value.trim()) {
+      setActions((prev) => {
+        const updated = [...prev];
+        const action = updated[textEditing.actionIndex];
+        if (action && action.type !== "pen" && action.type !== "eraser") {
+          updated[textEditing.actionIndex] = {
+            ...action,
+            text: value,
+            fontSize,
+            textAlign,
+          } as DrawAction;
+        }
+        return updated;
+      });
+    } else {
+      // Remove empty text-only actions to keep undo/redo history clean
+      setActions((prev) => {
+        const action = prev[textEditing.actionIndex];
+        if (action && action.type === "text" && !action.text) {
+          return prev.filter((_, i) => i !== textEditing.actionIndex);
+        }
+        return prev;
+      });
+    }
+    setTextEditing(null);
+    setTextInputValue("");
+  }
+
+  function cancelTextEditing() {
+    if (textEditing === null) return;
+    // Remove empty text-only actions on cancel
+    setActions((prev) => {
+      const action = prev[textEditing.actionIndex];
+      if (action && action.type === "text" && !action.text) {
+        return prev.filter((_, i) => i !== textEditing.actionIndex);
+      }
+      return prev;
+    });
+    setTextEditing(null);
+    setTextInputValue("");
+  }
+
+  function getShapeBounds(
+    action: DrawAction,
+  ): { x: number; y: number; w: number; h: number } | null {
+    if (action.type === "rect") {
+      const x = Math.min(action.start.x, action.end.x);
+      const y = Math.min(action.start.y, action.end.y);
+      const w = Math.abs(action.end.x - action.start.x);
+      const h = Math.abs(action.end.y - action.start.y);
+      return { x, y, w, h };
+    } else if (action.type === "circle") {
+      const cx = (action.start.x + action.end.x) / 2;
+      const cy = (action.start.y + action.end.y) / 2;
+      const rx = Math.abs(action.end.x - action.start.x) / 2;
+      const ry = Math.abs(action.end.y - action.start.y) / 2;
+      return { x: cx - rx, y: cy - ry, w: rx * 2, h: ry * 2 };
+    } else if (action.type === "line" || action.type === "arrow") {
+      const cx = (action.start.x + action.end.x) / 2;
+      const cy = (action.start.y + action.end.y) / 2;
+      return { x: cx - 60, y: cy - 20, w: 120, h: 40 };
+    } else if (action.type === "text") {
+      return {
+        x: action.position.x - 150,
+        y: action.position.y - 20,
+        w: 300,
+        h: 40,
+      };
+    }
+    return null;
+  }
+
   function handleMouseDown(e: React.MouseEvent<HTMLCanvasElement>) {
     if (e.button !== 0) return;
+    // If text editing is active, commit before starting new action
+    if (textEditing !== null) {
+      commitTextEditing();
+      return;
+    }
+    if (tool === "text") {
+      const pt = getCanvasPoint(e);
+      const newAction: DrawAction = {
+        type: "text",
+        position: pt,
+        text: "",
+        color,
+        fontSize,
+        textAlign,
+      };
+      const idx = actions.length;
+      setActions([...actions, newAction]);
+      setTextEditing({
+        actionIndex: idx,
+        x: pt.x - 150,
+        y: pt.y - 20,
+        w: 300,
+        h: 40,
+      });
+      setUndone([]);
+      setTextInputValue("");
+      return;
+    }
     drawing.current = true;
     const pt = getCanvasPoint(e);
     if (tool === "pen" || tool === "eraser") {
@@ -315,12 +548,23 @@ export default function Whiteboard({ darkMode }: WhiteboardProps) {
         end: pt,
         color,
         width: strokeWidth,
+        fontSize,
+        textAlign,
       } as DrawAction;
     }
 
     if (action) {
-      setActions((prev) => [...prev, action!]);
+      const idx = actions.length;
+      setActions([...actions, action]);
       setUndone([]);
+      // Show text input for shape tools that support inline text
+      if (TEXT_SHAPE_TYPES.has(action.type)) {
+        const bounds = getShapeBounds(action);
+        if (bounds) {
+          setTextEditing({ actionIndex: idx, ...bounds });
+          setTextInputValue("");
+        }
+      }
     }
 
     currentPoints.current = [];
@@ -348,6 +592,8 @@ export default function Whiteboard({ darkMode }: WhiteboardProps) {
   function handleClear() {
     setActions([]);
     setUndone([]);
+    setTextEditing(null);
+    setTextInputValue("");
   }
 
   // Keyboard shortcuts
@@ -396,6 +642,15 @@ export default function Whiteboard({ darkMode }: WhiteboardProps) {
       icon: <VscSymbolMisc />,
     },
     { id: "circle", label: "Circle", icon: <VscCircleLarge /> },
+    {
+      id: "text",
+      label: "Text",
+      icon: (
+        <Box as="span" fontWeight="bold" fontSize="sm">
+          T
+        </Box>
+      ),
+    },
     { id: "eraser", label: "Eraser", icon: <VscClearAll /> },
   ];
 
@@ -485,6 +740,51 @@ export default function Whiteboard({ darkMode }: WhiteboardProps) {
         {/* Separator */}
         <Box w="1px" h={5} bg={toolbarBorder} mx={0.5} flexShrink={0} />
 
+        {/* Font size */}
+        <Tooltip label="Font size" fontSize="xs" placement="bottom">
+          <Select
+            aria-label="Font size"
+            size="xs"
+            w="60px"
+            value={fontSize}
+            onChange={(e) => setFontSize(Number(e.target.value))}
+            bg={toolbarBg}
+            borderColor={toolbarBorder}
+          >
+            {FONT_SIZES.map((s) => (
+              <option key={s} value={s}>
+                {s}px
+              </option>
+            ))}
+          </Select>
+        </Tooltip>
+
+        {/* Text alignment */}
+        {(["left", "center", "right"] as TextAlign[]).map((a) => (
+          <Tooltip
+            key={a}
+            label={`Align ${a}`}
+            fontSize="xs"
+            placement="bottom"
+          >
+            <IconButton
+              aria-label={`Align ${a}`}
+              icon={
+                <Box as="span" fontSize="xs" fontWeight="bold">
+                  {a === "left" ? "≡←" : a === "center" ? "≡" : "≡→"}
+                </Box>
+              }
+              size="xs"
+              variant={textAlign === a ? "solid" : "ghost"}
+              bg={textAlign === a ? activeBg : undefined}
+              onClick={() => setTextAlign(a)}
+            />
+          </Tooltip>
+        ))}
+
+        {/* Separator */}
+        <Box w="1px" h={5} bg={toolbarBorder} mx={0.5} flexShrink={0} />
+
         {/* Undo / Redo / Clear */}
         <Tooltip label="Undo (Ctrl+Z)" fontSize="xs" placement="bottom">
           <IconButton
@@ -524,7 +824,7 @@ export default function Whiteboard({ darkMode }: WhiteboardProps) {
           display: "block",
           width: "100%",
           height: "100%",
-          cursor: "crosshair",
+          cursor: tool === "text" ? "text" : "crosshair",
         }}
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
@@ -537,6 +837,53 @@ export default function Whiteboard({ darkMode }: WhiteboardProps) {
           }
         }}
       />
+
+      {/* Text editing overlay */}
+      {textEditing && (
+        <textarea
+          ref={textInputRef}
+          aria-label="Shape text input"
+          autoFocus
+          value={textInputValue}
+          onChange={(e) => setTextInputValue(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && !e.shiftKey) {
+              e.preventDefault();
+              commitTextEditing();
+            } else if (e.key === "Escape") {
+              cancelTextEditing();
+            }
+          }}
+          onBlur={() => {
+            if (!textInputValue || textInputValue.trim() === "") {
+              cancelTextEditing();
+            } else {
+              commitTextEditing();
+            }
+          }}
+          style={{
+            position: "absolute",
+            left: `${textEditing.x}px`,
+            top: `${textEditing.y}px`,
+            width: `${Math.max(textEditing.w, 80)}px`,
+            height: `${Math.max(textEditing.h, 32)}px`,
+            fontSize: `${fontSize}px`,
+            textAlign: textAlign,
+            color: color,
+            background: "transparent",
+            border: `1px dashed ${darkMode ? "rgba(255,255,255,0.4)" : "rgba(0,0,0,0.3)"}`,
+            outline: "none",
+            resize: "none",
+            overflow: "hidden",
+            fontFamily: "sans-serif",
+            lineHeight: "1.2",
+            padding: "2px 4px",
+            zIndex: 10,
+            boxSizing: "border-box",
+          }}
+          placeholder="Type here..."
+        />
+      )}
     </Box>
   );
 }
