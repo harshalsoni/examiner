@@ -55,6 +55,8 @@ type DrawAction =
 
 const FONT_SIZES = [12, 16, 20, 24, 32];
 
+const TEXT_SHAPE_TYPES = new Set(["rect", "circle", "line", "arrow"]);
+
 const COLORS = [
   "#E53E3E",
   "#DD6B20",
@@ -215,7 +217,16 @@ export default function Whiteboard({ darkMode }: WhiteboardProps) {
       if (action.text) {
         const cx = (action.start.x + action.end.x) / 2;
         const cy = (action.start.y + action.end.y) / 2;
-        renderShapeText(ctx, action.text, cx, cy, 120, action.fontSize ?? 16, action.textAlign ?? "center", action.color);
+        renderShapeText(
+          ctx,
+          action.text,
+          cx,
+          cy,
+          120,
+          action.fontSize ?? 16,
+          action.textAlign ?? "center",
+          action.color,
+        );
       }
     } else if (action.type === "arrow") {
       ctx.strokeStyle = action.color;
@@ -247,7 +258,16 @@ export default function Whiteboard({ darkMode }: WhiteboardProps) {
       if (action.text) {
         const cx = (action.start.x + action.end.x) / 2;
         const cy = (action.start.y + action.end.y) / 2;
-        renderShapeText(ctx, action.text, cx, cy, 120, action.fontSize ?? 16, action.textAlign ?? "center", action.color);
+        renderShapeText(
+          ctx,
+          action.text,
+          cx,
+          cy,
+          120,
+          action.fontSize ?? 16,
+          action.textAlign ?? "center",
+          action.color,
+        );
       }
     } else if (action.type === "rect") {
       ctx.strokeStyle = action.color;
@@ -259,7 +279,16 @@ export default function Whiteboard({ darkMode }: WhiteboardProps) {
       ctx.strokeRect(x, y, w, h);
       // Render inline text for rect
       if (action.text) {
-        renderShapeText(ctx, action.text, x + w / 2, y + h / 2, w - 8, action.fontSize ?? 16, action.textAlign ?? "center", action.color);
+        renderShapeText(
+          ctx,
+          action.text,
+          x + w / 2,
+          y + h / 2,
+          w - 8,
+          action.fontSize ?? 16,
+          action.textAlign ?? "center",
+          action.color,
+        );
       }
     } else if (action.type === "circle") {
       ctx.strokeStyle = action.color;
@@ -273,10 +302,28 @@ export default function Whiteboard({ darkMode }: WhiteboardProps) {
       ctx.stroke();
       // Render inline text for circle
       if (action.text) {
-        renderShapeText(ctx, action.text, cx, cy, rx * 1.4, action.fontSize ?? 16, action.textAlign ?? "center", action.color);
+        renderShapeText(
+          ctx,
+          action.text,
+          cx,
+          cy,
+          rx * 1.4,
+          action.fontSize ?? 16,
+          action.textAlign ?? "center",
+          action.color,
+        );
       }
     } else if (action.type === "text") {
-      renderShapeText(ctx, action.text, action.position.x, action.position.y, 300, action.fontSize, action.textAlign, action.color);
+      renderShapeText(
+        ctx,
+        action.text,
+        action.position.x,
+        action.position.y,
+        300,
+        action.fontSize,
+        action.textAlign,
+        action.color,
+      );
     }
   }
 
@@ -291,6 +338,7 @@ export default function Whiteboard({ darkMode }: WhiteboardProps) {
     textColor: string,
   ) {
     if (!text) return;
+    const clampedWidth = Math.max(maxWidth, 20);
     ctx.save();
     ctx.font = `${size}px sans-serif`;
     ctx.fillStyle = textColor;
@@ -301,10 +349,10 @@ export default function Whiteboard({ darkMode }: WhiteboardProps) {
     const totalHeight = lines.length * lineHeight;
     const startY = cy - totalHeight / 2 + lineHeight / 2;
     let xPos = cx;
-    if (align === "left") xPos = cx - maxWidth / 2;
-    else if (align === "right") xPos = cx + maxWidth / 2;
+    if (align === "left") xPos = cx - clampedWidth / 2;
+    else if (align === "right") xPos = cx + clampedWidth / 2;
     for (let i = 0; i < lines.length; i++) {
-      ctx.fillText(lines[i], xPos, startY + i * lineHeight, maxWidth);
+      ctx.fillText(lines[i], xPos, startY + i * lineHeight, clampedWidth);
     }
     ctx.restore();
   }
@@ -323,7 +371,12 @@ export default function Whiteboard({ darkMode }: WhiteboardProps) {
         const updated = [...prev];
         const action = updated[textEditing.actionIndex];
         if (action && action.type !== "pen" && action.type !== "eraser") {
-          updated[textEditing.actionIndex] = { ...action, text: value, fontSize, textAlign } as DrawAction;
+          updated[textEditing.actionIndex] = {
+            ...action,
+            text: value,
+            fontSize,
+            textAlign,
+          } as DrawAction;
         }
         return updated;
       });
@@ -332,7 +385,9 @@ export default function Whiteboard({ darkMode }: WhiteboardProps) {
     setTextInputValue("");
   }
 
-  function getShapeBounds(action: DrawAction): { x: number; y: number; w: number; h: number } | null {
+  function getShapeBounds(
+    action: DrawAction,
+  ): { x: number; y: number; w: number; h: number } | null {
     if (action.type === "rect") {
       const x = Math.min(action.start.x, action.end.x);
       const y = Math.min(action.start.y, action.end.y);
@@ -350,7 +405,12 @@ export default function Whiteboard({ darkMode }: WhiteboardProps) {
       const cy = (action.start.y + action.end.y) / 2;
       return { x: cx - 60, y: cy - 20, w: 120, h: 40 };
     } else if (action.type === "text") {
-      return { x: action.position.x - 150, y: action.position.y - 20, w: 300, h: 40 };
+      return {
+        x: action.position.x - 150,
+        y: action.position.y - 20,
+        w: 300,
+        h: 40,
+      };
     }
     return null;
   }
@@ -375,7 +435,13 @@ export default function Whiteboard({ darkMode }: WhiteboardProps) {
       setActions((prev) => {
         const newActions = [...prev, newAction];
         const idx = newActions.length - 1;
-        setTextEditing({ actionIndex: idx, x: pt.x - 150, y: pt.y - 20, w: 300, h: 40 });
+        setTextEditing({
+          actionIndex: idx,
+          x: pt.x - 150,
+          y: pt.y - 20,
+          w: 300,
+          h: 40,
+        });
         return newActions;
       });
       setUndone([]);
@@ -470,13 +536,8 @@ export default function Whiteboard({ darkMode }: WhiteboardProps) {
     if (action) {
       setActions((prev) => {
         const newActions = [...prev, action!];
-        // Show text input for shape tools (rect, circle, line, arrow)
-        if (
-          action!.type === "rect" ||
-          action!.type === "circle" ||
-          action!.type === "line" ||
-          action!.type === "arrow"
-        ) {
+        // Show text input for shape tools that support inline text
+        if (TEXT_SHAPE_TYPES.has(action!.type)) {
           const bounds = getShapeBounds(action!);
           if (bounds) {
             const idx = newActions.length - 1;
@@ -683,7 +744,12 @@ export default function Whiteboard({ darkMode }: WhiteboardProps) {
 
         {/* Text alignment */}
         {(["left", "center", "right"] as TextAlign[]).map((a) => (
-          <Tooltip key={a} label={`Align ${a}`} fontSize="xs" placement="bottom">
+          <Tooltip
+            key={a}
+            label={`Align ${a}`}
+            fontSize="xs"
+            placement="bottom"
+          >
             <IconButton
               aria-label={`Align ${a}`}
               icon={
