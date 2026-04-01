@@ -36,7 +36,7 @@ struct State {
     language: Option<String>,
     users: HashMap<u64, UserInfo>,
     cursors: HashMap<u64, CursorData>,
-    /// Active countdown timer, if any. Stored as an epoch‐ms deadline.
+    /// Active countdown timer, if any. Stored as an epoch-ms deadline.
     timer: Option<TimerState>,
 }
 

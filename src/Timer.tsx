@@ -51,7 +51,7 @@ function TimerDisplay({ endTime, label, darkMode }: TimerDisplayProps) {
   if (isExpired) colorScheme = "red";
   else if (isUrgent) colorScheme = "red";
   else if (isWarning) colorScheme = "orange";
-  else colorScheme = darkMode ? "blue" : "blue";
+  else colorScheme = "blue";
 
   return (
     <HStack spacing={1.5}>
