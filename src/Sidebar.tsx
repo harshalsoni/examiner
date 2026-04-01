@@ -3,17 +3,23 @@ import {
   Button,
   Container,
   Flex,
+  HStack,
   Heading,
   Input,
   InputGroup,
   InputRightElement,
+  NumberDecrementStepper,
+  NumberIncrementStepper,
+  NumberInput,
+  NumberInputField,
+  NumberInputStepper,
   Select,
   Stack,
   Switch,
   Text,
   useToast,
 } from "@chakra-ui/react";
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { VscCloudDownload, VscCloudUpload } from "react-icons/vsc";
 
 import type { ProctoringStats } from "./App";
@@ -50,10 +56,13 @@ export type SidebarProps = {
   focusLossCount: number;
   isCreator: boolean;
   userProctoringStats: ProctoringStats;
+  timerEndTime: number | null;
   onDarkModeChange: () => void;
   onLanguageChange: (language: string) => void;
   onUploadQuestions: (text: string) => void;
   onDownloadCode: () => void;
+  onSetTimer: (durationSecs: number, label: string | null) => void;
+  onClearTimer: () => void;
   onChangeName: (name: string) => void;
   onChangeColor: () => void;
 };
@@ -69,15 +78,19 @@ function Sidebar({
   focusLossCount,
   isCreator,
   userProctoringStats,
+  timerEndTime,
   onDarkModeChange,
   onLanguageChange,
   onUploadQuestions,
   onDownloadCode,
+  onSetTimer,
+  onClearTimer,
   onChangeName,
   onChangeColor,
 }: SidebarProps) {
   const toast = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [timerMinutes, setTimerMinutes] = useState("30");
 
   // Candidates get a clean URL without the examiner token.
   const shareUrl = getCandidateUrl(documentId);
@@ -291,6 +304,53 @@ function Sidebar({
             >
               Download Code
             </Button>
+          </Stack>
+
+          <Heading mt={4} mb={1.5} size="sm">
+            Timer
+          </Heading>
+          <Stack spacing={2}>
+            <HStack>
+              <NumberInput
+                size="sm"
+                min={1}
+                max={180}
+                value={timerMinutes}
+                onChange={(val) => setTimerMinutes(val)}
+                isDisabled={timerEndTime !== null}
+              >
+                <NumberInputField
+                  bgColor={darkMode ? "#3c3c3c" : "white"}
+                  borderColor={darkMode ? "#3c3c3c" : "white"}
+                  placeholder="Min"
+                />
+                <NumberInputStepper>
+                  <NumberIncrementStepper />
+                  <NumberDecrementStepper />
+                </NumberInputStepper>
+              </NumberInput>
+              <Text fontSize="xs" whiteSpace="nowrap">
+                min
+              </Text>
+            </HStack>
+            {timerEndTime === null ? (
+              <Button
+                size="sm"
+                colorScheme="blue"
+                onClick={() => {
+                  const mins = parseInt(timerMinutes, 10);
+                  if (mins > 0) {
+                    onSetTimer(mins * 60, null);
+                  }
+                }}
+              >
+                Start Timer
+              </Button>
+            ) : (
+              <Button size="sm" colorScheme="red" onClick={onClearTimer}>
+                Clear Timer
+              </Button>
+            )}
           </Stack>
         </>
       )}
