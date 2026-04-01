@@ -17,6 +17,10 @@ export type ExaminerOptions = {
   readonly onChangeUsers?: (users: Record<number, UserInfo>) => void;
   readonly onFocusChange?: (userId: number, blurred: boolean) => void;
   readonly onProctoringEvent?: (userId: number, eventType: string) => void;
+  readonly onTimerUpdate?: (
+    endTime: number | null,
+    label: string | null,
+  ) => void;
   readonly reconnectInterval?: number;
 };
 
@@ -122,6 +126,13 @@ class Examiner {
     );
   }
 
+  /** Set or clear the countdown timer visible to all participants. */
+  setTimer(endTime: number | null, label: string | null) {
+    this.ws?.send(
+      JSON.stringify({ SetTimer: { end_time: endTime, label } }),
+    );
+  }
+
   /**
    * Attempts a WebSocket connection.
    *
@@ -221,6 +232,9 @@ class Examiner {
       if (id !== this.me) {
         this.options.onProctoringEvent?.(id, event_type);
       }
+    } else if (msg.TimerUpdate !== undefined) {
+      const { end_time, label } = msg.TimerUpdate;
+      this.options.onTimerUpdate?.(end_time, label);
     }
   }
 
@@ -483,6 +497,10 @@ type ServerMsg = {
   ProctoringEvent?: {
     id: number;
     event_type: string;
+  };
+  TimerUpdate?: {
+    end_time: number | null;
+    label: string | null;
   };
 };
 

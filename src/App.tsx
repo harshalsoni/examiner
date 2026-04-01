@@ -25,6 +25,7 @@ import useLocalStorageState from "use-local-storage-state";
 
 import Footer from "./Footer";
 import Sidebar from "./Sidebar";
+import TimerDisplay from "./Timer";
 import Whiteboard from "./Whiteboard";
 import animals from "./animals.json";
 import Examiner, { UserInfo } from "./examiner";
@@ -143,6 +144,8 @@ function App() {
     useState<ProctoringStats>({});
   const [isMouseOutside, setIsMouseOutside] = useState(false);
   const [mode, setMode] = useState<"code" | "whiteboard">("code");
+  const [timerEndTime, setTimerEndTime] = useState<number | null>(null);
+  const [timerLabel, setTimerLabel] = useState<string | null>(null);
   const examiner = useRef<Examiner>();
   const { id, isNewSession } = useHash();
 
@@ -176,6 +179,14 @@ function App() {
           },
         };
       });
+    },
+    [],
+  );
+
+  const handleTimerUpdate = useCallback(
+    (endTime: number | null, label: string | null) => {
+      setTimerEndTime(endTime);
+      setTimerLabel(label);
     },
     [],
   );
@@ -375,6 +386,7 @@ function App() {
         onChangeUsers: setUsers,
         onFocusChange: handleFocusChange,
         onProctoringEvent: handleProctoringEvent,
+        onTimerUpdate: handleTimerUpdate,
       });
       return () => {
         examiner.current?.dispose();
@@ -388,6 +400,7 @@ function App() {
     setUsers,
     handleFocusChange,
     handleProctoringEvent,
+    handleTimerUpdate,
   ]);
 
   useEffect(() => {
@@ -452,6 +465,15 @@ function App() {
     }
   }
 
+  function handleSetTimer(durationSecs: number, label: string | null) {
+    const endTime = Date.now() + durationSecs * 1000;
+    examiner.current?.setTimer(endTime, label);
+  }
+
+  function handleClearTimer() {
+    examiner.current?.setTimer(null, null);
+  }
+
   function handleDarkModeChange() {
     setDarkMode(!darkMode);
   }
@@ -476,10 +498,13 @@ function App() {
           focusLossCount={focusLossCount}
           isCreator={isCreator}
           userProctoringStats={userProctoringStats}
+          timerEndTime={timerEndTime}
           onDarkModeChange={handleDarkModeChange}
           onLanguageChange={handleLanguageChange}
           onUploadQuestions={handleUploadQuestions}
           onDownloadCode={handleDownloadCode}
+          onSetTimer={handleSetTimer}
+          onClearTimer={handleClearTimer}
           onChangeName={(name) => name.length > 0 && setName(name)}
           onChangeColor={() => setHue(generateHue())}
         />
@@ -502,7 +527,13 @@ function App() {
               <Icon as={VscGist} fontSize="md" color="purple.500" />
               <Text>{id}</Text>
             </HStack>
-            <HStack spacing={0}>
+            <HStack spacing={2}>
+              <TimerDisplay
+                endTime={timerEndTime}
+                label={timerLabel}
+                darkMode={darkMode}
+              />
+              <HStack spacing={0}>
               <Button
                 size="xs"
                 variant={mode === "code" ? "solid" : "ghost"}
@@ -525,6 +556,7 @@ function App() {
               >
                 Whiteboard
               </Button>
+              </HStack>
             </HStack>
           </HStack>
           <Box flex={1} minH={0} position="relative">

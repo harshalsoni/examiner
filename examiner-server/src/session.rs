@@ -36,6 +36,17 @@ struct State {
     language: Option<String>,
     users: HashMap<u64, UserInfo>,
     cursors: HashMap<u64, CursorData>,
+    /// Active countdown timer, if any. Stored as an epoch‐ms deadline.
+    timer: Option<TimerState>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+struct TimerState {
+    /// Unix epoch milliseconds when the timer expires.
+    end_time: i64,
+    /// Optional human-readable label (e.g. "Question 1").
+    #[serde(skip_serializing_if = "Option::is_none")]
+    label: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -74,6 +85,12 @@ enum ClientMsg {
     FocusChange { blurred: bool },
     /// Reports a proctoring event (copy attempt, paste attempt, etc.).
     ProctoringEvent { event_type: String },
+    /// Sets or clears the countdown timer visible to all participants.
+    SetTimer {
+        end_time: Option<i64>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        label: Option<String>,
+    },
 }
 
 /// A message sent to the client over WebSocket.
@@ -96,6 +113,12 @@ enum ServerMsg {
     UserFocus { id: u64, blurred: bool },
     /// Broadcasts a proctoring event from a specific user.
     ProctoringEvent { id: u64, event_type: String },
+    /// Broadcasts the current countdown timer state.
+    TimerUpdate {
+        end_time: Option<i64>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        label: Option<String>,
+    },
 }
 
 impl From<ServerMsg> for Message {
@@ -247,6 +270,12 @@ impl Examiner {
                     data: data.clone(),
                 });
             }
+            if let Some(timer) = &state.timer {
+                messages.push(ServerMsg::TimerUpdate {
+                    end_time: Some(timer.end_time),
+                    label: timer.label.clone(),
+                });
+            }
             state.operations.len()
         };
         for msg in messages {
@@ -310,6 +339,16 @@ impl Examiner {
             }
             ClientMsg::ProctoringEvent { event_type } => {
                 let msg = ServerMsg::ProctoringEvent { id, event_type };
+                self.update.send(msg).ok();
+            }
+            ClientMsg::SetTimer { end_time, label } => {
+                let mut state = self.state.write();
+                state.timer = end_time.map(|t| TimerState {
+                    end_time: t,
+                    label: label.clone(),
+                });
+                drop(state);
+                let msg = ServerMsg::TimerUpdate { end_time, label };
                 self.update.send(msg).ok();
             }
         }
