@@ -1,0 +1,99 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 200" width="800" height="200">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#1a1a2e"/>
+      <stop offset="50%" style="stop-color:#16213e"/>
+      <stop offset="100%" style="stop-color:#0f3460"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#e94560"/>
+      <stop offset="100%" style="stop-color:#533483"/>
+    </linearGradient>
+    <linearGradient id="textGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#ffffff"/>
+      <stop offset="100%" style="stop-color:#e0e0e0"/>
+    </linearGradient>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="3" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <style>
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+    @keyframes slideUp {
+      from { opacity: 0; transform: translateY(12px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes accentLine {
+      from { width: 0; }
+      to { width: 120px; }
+    }
+    @keyframes shimmer {
+      0% { opacity: 0.4; }
+      50% { opacity: 1; }
+      100% { opacity: 0.4; }
+    }
+    @keyframes orb {
+      0% { transform: translate(0, 0) scale(1); opacity: 0.15; }
+      50% { transform: translate(10px, -8px) scale(1.1); opacity: 0.25; }
+      100% { transform: translate(0, 0) scale(1); opacity: 0.15; }
+    }
+    .banner-bg { animation: fadeIn 0.8s ease-out both; }
+    .repo-name { animation: slideUp 0.8s ease-out 0.3s both; }
+    .subtitle { animation: slideUp 0.8s ease-out 0.5s both; }
+    .accent-line { animation: accentLine 1s ease-out 0.7s both; }
+    .gh-icon { animation: slideUp 0.8s ease-out 0.6s both; }
+    .orb1 { animation: orb 6s ease-in-out infinite; }
+    .orb2 { animation: orb 8s ease-in-out 2s infinite; }
+    .orb3 { animation: orb 7s ease-in-out 4s infinite; }
+    .star { animation: shimmer 3s ease-in-out infinite; }
+    .star-d1 { animation-delay: 0.5s; }
+    .star-d2 { animation-delay: 1.2s; }
+    .star-d3 { animation-delay: 2s; }
+    .star-d4 { animation-delay: 0.8s; }
+    .star-d5 { animation-delay: 1.6s; }
+  </style>
+
+  <!-- Background -->
+  <rect class="banner-bg" width="800" height="200" rx="12" fill="url(#bg)"/>
+
+  <!-- Floating orbs for depth -->
+  <circle class="orb1" cx="680" cy="50" r="60" fill="#e94560" opacity="0.15"/>
+  <circle class="orb2" cx="120" cy="160" r="45" fill="#533483" opacity="0.15"/>
+  <circle class="orb3" cx="600" cy="170" r="35" fill="#0f3460" opacity="0.2"/>
+
+  <!-- Decorative stars -->
+  <circle class="star star-d1" cx="90" cy="35" r="1.5" fill="#ffffff"/>
+  <circle class="star star-d2" cx="250" cy="25" r="1" fill="#ffffff"/>
+  <circle class="star star-d3" cx="520" cy="40" r="1.5" fill="#ffffff"/>
+  <circle class="star star-d4" cx="710" cy="30" r="1" fill="#ffffff"/>
+  <circle class="star star-d5" cx="400" cy="18" r="1.2" fill="#ffffff"/>
+
+  <!-- GitHub Invertocat icon -->
+  <g class="gh-icon" transform="translate(60, 62)">
+    <path d="M38 0C17 0 0 17 0 38c0 16.8 10.9 31 26 36 1.9.35 2.6-.83 2.6-1.83 0-.91-.03-3.9-.05-7.1-10.6 2.3-12.8-4.5-12.8-4.5-1.7-4.4-4.2-5.6-4.2-5.6-3.5-2.4.26-2.3.26-2.3 3.8.27 5.8 3.9 5.8 3.9 3.4 5.8 8.9 4.1 11.1 3.2.34-2.4 1.3-4.1 2.4-5.1-8.5-1-17.4-4.2-17.4-18.8 0-4.2 1.5-7.6 3.9-10.2-.4-1-1.7-4.9.37-10.1 0 0 3.2-1 10.4 3.9 3-0.84 6.2-1.3 9.4-1.3 3.2 0 6.4.43 9.4 1.3 7.2-4.9 10.4-3.9 10.4-3.9 2.1 5.2.77 8.9.38 10.1 2.4 2.6 3.9 6 3.9 10.2 0 14.6-8.9 17.8-17.4 18.8 1.4 1.2 2.6 3.5 2.6 7.1 0 5.1-.05 9.2-.05 10.5 0 1 .69 2.2 2.6 1.8C65.1 69 76 54.8 76 38 76 17 59 0 38 0z" fill="#ffffff" opacity="0.9" transform="scale(0.95)"/>
+  </g>
+
+  <!-- Repo name -->
+  <text class="repo-name" x="145" y="95" font-family="'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="30" font-weight="600" fill="url(#textGrad)" letter-spacing="0.5">
+    harshalsoni/examiner
+  </text>
+
+  <!-- Accent line -->
+  <rect class="accent-line" x="145" y="110" height="3" rx="1.5" fill="url(#accent)"/>
+
+  <!-- Subtitle -->
+  <text class="subtitle" x="145" y="140" font-family="'SF Pro Text', -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="14" fill="#a0a0b8" letter-spacing="1">
+    Powered by GitHub
+  </text>
+
+  <!-- Subtle border -->
+  <rect width="800" height="200" rx="12" fill="none" stroke="#ffffff" stroke-opacity="0.06" stroke-width="1"/>
+</svg>

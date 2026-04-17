@@ -1,3 +1,9 @@
+<p align="center">
+  <a href="https://github.com/harshalsoni/examiner">
+    <img src="public/banner.svg" alt="harshalsoni/examiner — Powered by GitHub" width="800">
+  </a>
+</p>
+
 # Rustpad
 
 [![Docker Pulls](https://img.shields.io/docker/pulls/ekzhang/rustpad)](https://hub.docker.com/r/ekzhang/rustpad/)
